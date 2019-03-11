@@ -1,0 +1,24 @@
+body{
+    background-color: lightyellow
+}
+
+table{
+    border-style: solid;
+    border-color:black;
+    border-width: 1%;
+    margin-left: 30%
+}
+
+th,td{
+    font-family:monospace;
+    color:green;
+    font-size:150%
+}
+
+h1{
+    font-family: 'Courier New', Courier, monospace;
+    color: teal;
+    font-size: 200%;
+    margin-left: 30%
+}
+
