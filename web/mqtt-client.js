@@ -1,4 +1,7 @@
-var wmessage = "Message from broker";
+var parameters = {
+    "temperature" : 25
+}
+
 // Create a client instance
 client = new Paho.MQTT.Client("m16.cloudmqtt.com", 35432, "WebFarmClient");
 
@@ -19,12 +22,8 @@ client.connect(options);
 
 // called when the client connects
 function onConnect() {
-    // Once a connection has been made, make a subscription and send a message.
     console.log("onConnect");
-    client.subscribe("/cloudmqtt");
-    message = new Paho.MQTT.Message("Hello CloudMQTT");
-    message.destinationName = "/cloudmqtt";
-    client.send(message);
+    client.subscribe("farm/temperature");
 }
 
 function doFail(e){
@@ -34,12 +33,23 @@ function doFail(e){
 // called when the client loses its connection
 function onConnectionLost(responseObject) {
     if (responseObject.errorCode !== 0) {
-    console.log("onConnectionLost:"+responseObject.errorMessage);
+    console.log("Connection lost: " + responseObject.errorMessage);
     }
 }
 
 // called when a message arrives
 function onMessageArrived(message) {
-    console.log("onMessageArrived:"+message.payloadString);
-    wmessage = message.payloadString
+    console.log("Message arrived: " + message.payloadString);
+    console.log("Message topic: " + message.destinationName);
+    if(message.destinationName == "farm/temperature")
+    {
+        parameters["temperature"] = message.payloadString;
+        console.log("Changed temp to: " + parameters["temperature"]);
+    }
+}
+
+function getTemperature()
+{
+    document.clear();
+    document.write(parameters["temperature"]);
 }

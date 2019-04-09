@@ -15,6 +15,18 @@ th,td{
     font-size:150%
 }
 
+td.board{
+    border-style:solid;
+    border-color:red;
+    border-width: 1px;
+    width:30%
+}
+
+table.board
+{
+    border-collapse: collapse;
+}
+
 h1{
     font-family: 'Courier New', Courier, monospace;
     color: teal;
