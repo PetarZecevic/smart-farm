@@ -1,5 +1,6 @@
 #include "mqtt_client.hpp"
 #include <iostream>
+#include <cstdio>
 
 static int arrived = 0;
 
@@ -46,10 +47,12 @@ bool MQTT_Client::connectToBroker(std::string brokerLocation, int port)
 
 void static logMessageCallback(MQTT::MessageData& mdata)
 {
-    MQTT::Message m = mdata.message;
-    std::cout << "Received message on topic " << mdata.topicName.cstring << std::endl;
-    std::cout << (char*)m.payload << std::endl;
-    arrived++;  
+    MQTT::Message &message = mdata.message;
+
+    printf("Message arrived: qos %d, retained %d, dup %d, packetid %d\n", 
+		message.qos, message.retained, message.dup, message.id);
+    printf("Payload %.*s\n", (int)message.payloadlen, (char*)message.payload);
+    arrived++;
 }
 
 bool MQTT_Client::sendInfo()
@@ -63,8 +66,7 @@ bool MQTT_Client::sendInfo()
     {
         // Send device information to gateway.
         std::string builder = "";
-        builder += "group : " + ipinfo.group + "\n";
-        builder += "id : " + ipinfo.id;
+        builder += ipinfo.group + "/" + ipinfo.id;
         rc = client.publish(gatewaylog.c_str(), (void*)builder.c_str(), builder.length(), MQTT::QOS2);
         if(rc != MQTT::returnCode::SUCCESS)
             return false;

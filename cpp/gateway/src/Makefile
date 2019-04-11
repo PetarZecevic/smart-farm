@@ -12,8 +12,11 @@ $(ODIR)/lssdp.o : lssdp.c
 	
 $(ODIR)/ssdp_manager.o: ssdp_manager.cpp
 	$(CXX) $(CXXFLAGS) -g -c $^ -o $@
-	
-main: $(ODIR)/ssdp_manager.o $(ODIR)/lssdp.o main.cpp
+
+$(ODIR)/mqtt_server.o: mqtt_server.cpp
+	$(CXX) $(CXXFLAGS) -g -c $^ -o $@
+
+main: $(ODIR)/mqtt_server.o $(ODIR)/ssdp_manager.o $(ODIR)/lssdp.o main.cpp
 	$(CXX) $(CXXFLAGS) -g $^ -o $@ $(LIBS)
 	
 all: main
