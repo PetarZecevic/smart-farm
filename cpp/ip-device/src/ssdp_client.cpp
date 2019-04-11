@@ -42,6 +42,7 @@ int SSDP_Client::checkMessages()
         {
             lssdp_nbr* neighbor = client.neighbor_list;
             gatewayLogTopic = std::string(neighbor->sm_id);
+            gatewayLocation = std::string(neighbor->location);
         }
     }
     else

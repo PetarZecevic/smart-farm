@@ -15,6 +15,7 @@ public:
 	int checkMessages();
 	int searchControler();
 	std::string getLogTopic() { return gatewayLogTopic; };
+	std::string getLocation() { return gatewayLocation; };
 private:
 	void static log_callback(const char * file, const char * tag, int level, int line, const char * func, const char * message);
 	int static show_interface_list_and_rebind_socket(lssdp_ctx * lssdp);
@@ -23,6 +24,7 @@ private:
 	lssdp_ctx client; // structure that describes all fields in protocol.
 	fd_set fs; // used for asynchronius I/O.
 	std::string gatewayLogTopic;
+	std::string gatewayLocation;
 };
 
 #endif // SSDPCLIENT_HPP

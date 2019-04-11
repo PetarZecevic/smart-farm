@@ -1,2 +1,3 @@
 specifikacija.txt
-
+cpp/ip-device/obj/*.o
+cpp/gateway/obj/*.o

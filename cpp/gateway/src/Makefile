@@ -1,6 +1,6 @@
 ODIR = ../obj
 IDIR = ../inc
-LIBS = -lpthread
+LIBS = -lpthread -lpaho-mqttpp3 -lpaho-mqtt3a
 
 CXX = g++
 CXXFLAGS = -Wall -I $(IDIR) -std=c++11 
