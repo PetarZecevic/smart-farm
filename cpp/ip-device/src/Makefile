@@ -17,7 +17,7 @@ $(ODIR)/ssdp_client.o: ssdp_client.cpp
 
 # -Wl,-R/libpath eksplicitno naglasava odakle da potrazi biblioteke u runtime linkovanju.
 main: $(ODIR)/ssdp_client.o $(ODIR)/lssdp.o main.cpp
-	$(CXX) $(CXXFLAGS) -L $(LDIR) -I $(IDIR)/MQTTClient -I $(IDIR)/MQTTPacket -g $^ -o $@ $(LIBS) -Wl,-R$(LDIR)
+	$(CXX) $(CXXFLAGS) -I /usr/local/include -L $(LDIR) -g $^ -o $@ $(LIBS) -Wl,-R$(LDIR)
 	
 all: main
 

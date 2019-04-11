@@ -5,9 +5,9 @@
 
 #define MQTTCLIENT_QOS2 1
 #include <memory.h>
-#include "MQTTClient.h"
+#include "mqtt-embedded/MQTTClient/MQTTClient.h"
 #define DEFAULT_STACK_SIZE -1
-#include "linux.cpp"
+#include "mqtt-embedded/MQTTClient/linux.cpp"
 
 #define WAIT_TIME 1000*1000 // one second in microseconds
 
