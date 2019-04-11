@@ -1,43 +1,25 @@
-#include "ssdp_client.hpp"
 #include <iostream>
 //#include <chrono>
 #include <unistd.h>
-
-#define MQTTCLIENT_QOS2 1
-#include <memory.h>
-#include "mqtt-embedded/MQTTClient/MQTTClient.h"
-#define DEFAULT_STACK_SIZE -1
-#include "mqtt-embedded/MQTTClient/linux.cpp"
+#include <cstdlib>
+#include "ssdp_client.hpp"
+#include "mqtt_client.hpp"
 
 #define WAIT_TIME 1000*1000 // one second in microseconds
 
 using namespace std;
 
-int arrivedcount = 0;
-
-void messageArrived(MQTT::MessageData& md)
+void findControler(SSDP_Client& cl)
 {
-    MQTT::Message &message = md.message;
-
-    printf("Message %d arrived: qos %d, retained %d, dup %d, packetid %d\n", 
-		++arrivedcount, message.qos, message.retained, message.dup, message.id);
-    printf("Payload %.*s\n", (int)message.payloadlen, (char*)message.payload);
-}
-
-int main()
-{
-	cout << "Hello Raspberry Pi" << endl;
-	string name = string("IP1");
-	SSDP_Client c1(name, true);
 	// Trying to find iot controler's.
 	while(true)
 	{
-		if(c1.searchControler())
+		if(cl.searchControler())
 		{
 			// Sent msearch.
 			cout << "Sent MSEARCH" << endl;
 			usleep(WAIT_TIME);
-			if(c1.checkMessages())
+			if(cl.checkMessages())
 			{
 				// Found IOT gateway.
 				cout << "Found gateway " << endl;
@@ -50,62 +32,63 @@ int main()
 			usleep(WAIT_TIME);
 		}
 	}
+
+	return;
+}
+
+int main()
+{
+	string name = string("IP1");
+	SSDP_Client c1(name, true);
 	
+	findControler(c1);
+
+	IPInfo_t info;
+	info.id = name;
+	info.group = "sensors";
+
 	// Start MQTT logic.
-	cout << "MQTT local server location " << c1.getLocation() << endl;
-	cout << "Topic for logging " << c1.getLogTopic() << endl;
-	
-	
-	IPStack ipstack = IPStack();
-	MQTT::Client<IPStack, Countdown> client = MQTT::Client<IPStack, Countdown>(ipstack);
-	
-	string hostname = c1.getLocation();
-    int port = 1883;
-    printf("Connecting to %s:%d\n", hostname.c_str(), port);
-    int rc = ipstack.connect(hostname.c_str(), port);
+	MQTT_Client mqtt_client(info);
+	cout << "Location: " << c1.getLocation() << endl;
+	mqtt_client.setLog(c1.getLogTopic());
+	string loc = c1.getLocation();
+	int pos = loc.find_first_of(':', 0); // Get port number from location.
+	int port = atoi(loc.substr(pos+1).c_str());
+	string ip = loc.substr(0, pos);
+
+	cout << "Ip : " << ip << endl << "Port: " << port << endl;
+
+	if(mqtt_client.connectToBroker(ip, port))
+	{
+		if(mqtt_client.sendInfo())
+		{
+			cout << "Bravo" << endl;
+		}
+	}
+	/*
+	printf("MQTT connected\n");
+	rc = client.subscribe(logIpTopic.c_str(), MQTT::QOS2, messageArrived);   
 	if (rc != MQTT::returnCode::SUCCESS)
 	{
-		printf("Failed to connect\n");
-	    printf("rc from TCP connect is %d\n", rc);
+		printf("rc from MQTT subscribe is %d\n", rc);
 	}
 	else
 	{
-		printf("MQTT connecting\n");
-    	MQTTPacket_connectData data = MQTTPacket_connectData_initializer;       
-    	data.MQTTVersion = 3;
-    	data.clientID.cstring = (char*)"ip_device1";
-    	rc = client.connect(data);
-		if (rc != MQTT::returnCode::SUCCESS)
-		{
-	    	printf("rc from MQTT connect is %d\n", rc);
-		}	
-		else
-		{
-			printf("MQTT connected\n");
-			rc = client.subscribe("hello/topic", MQTT::QOS2, messageArrived);   
-			if (rc != MQTT::returnCode::SUCCESS)
-			{
-				printf("rc from MQTT subscribe is %d\n", rc);
-			}
-			else
-			{
-				MQTT::Message message;
+		MQTT::Message message;
+		// QoS 0
+		char buf[100];
+		sprintf(buf, "Hello World!");
+		message.qos = MQTT::QOS0;
+		message.retained = false;
+		message.dup = false;
+		message.payload = (void*)buf;
+		message.payloadlen = strlen(buf)+1;
+		rc = client.publish(logGatewayTopic.c_str(), message);
+		if (rc != 0)
+			printf("Error %d from sending QoS 0 message\n", rc);
+		else while (arrivedcount == 0)
+			client.yield(100);
+	*/
 
-				// QoS 0
-				char buf[100];
-				sprintf(buf, "Hello World!  QoS 0 message from app version %f", 1.0);
-				message.qos = MQTT::QOS0;
-				message.retained = false;
-				message.dup = false;
-				message.payload = (void*)buf;
-				message.payloadlen = strlen(buf)+1;
-				rc = client.publish("hello/topic", message);
-				if (rc != 0)
-					printf("Error %d from sending QoS 0 message\n", rc);
-				else while (arrivedcount == 0)
-					client.yield(100);
-			}	
-		}
-	}
 	return 0;
 }

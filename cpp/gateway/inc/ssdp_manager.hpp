@@ -3,19 +3,16 @@
 
 #include <string>
 #include <cstdlib>
-
-extern "C"{
-    #include "lssdp.h"
-}
+#include "lssdp.h"
 
 class SSDP_Manager
 {
 public:
-    SSDP_Manager(std::string usn, std::string userId, bool debug);
+    SSDP_Manager(std::string usn, std::string userId, int brokerPort, bool debug);
     SSDP_Manager(const SSDP_Manager& m);
     ~SSDP_Manager();
-    int setInterface();
-    int checkForDevices();
+    bool setInterface();
+    bool checkForDevices();
     void operator()();
 private:
     void static log_callback(const char * file, const char * tag, int level, int line, const char * func, const char * message);

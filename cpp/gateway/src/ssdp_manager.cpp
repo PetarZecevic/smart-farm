@@ -9,7 +9,7 @@
 #define INTERFACE_UPDATE_TIMEOUT 500*1000 // ms
 
 // Public
-SSDP_Manager::SSDP_Manager(std::string usn, std::string userId, bool debug)
+SSDP_Manager::SSDP_Manager(std::string usn, std::string userId, int brokerPort, bool debug)
 {
     // Set parameters for client.
     client.sock = 0;
@@ -22,7 +22,9 @@ SSDP_Manager::SSDP_Manager(std::string usn, std::string userId, bool debug)
 	strcpy(client.header.device_type, "IOTGATEWAY");
     std::string logTopic = userId + "/gateway/" + usn + "/log";
     strcpy(client.header.sm_id, logTopic.c_str());
-    
+    memset(client.header.location.prefix, '\0', LSSDP_FIELD_LEN);
+    memset(client.header.location.domain, '\0', LSSDP_FIELD_LEN);
+    sprintf(client.header.location.suffix, ":%s", std::to_string(brokerPort).c_str());
 	// Set callbacks.
 	lssdp_set_log_callback(log_callback);
 	client.network_interface_changed_callback = show_interface_list_and_rebind_socket;
@@ -41,7 +43,10 @@ SSDP_Manager::SSDP_Manager(const SSDP_Manager& cmanager)
 	strcpy(client.header.unique_service_name, cmanager.client.header.unique_service_name);
 	strcpy(client.header.device_type, cmanager.client.header.device_type);
     strcpy(client.header.sm_id, cmanager.client.header.sm_id);
-    
+    strcpy(client.header.location.prefix, cmanager.client.header.location.prefix);
+    strcpy(client.header.location.domain, cmanager.client.header.location.domain);
+    strcpy(client.header.location.suffix, cmanager.client.header.location.suffix);
+
     // Callbacks are not copied.
     lssdp_set_log_callback(log_callback);
     client.network_interface_changed_callback = show_interface_list_and_rebind_socket;
@@ -50,12 +55,12 @@ SSDP_Manager::SSDP_Manager(const SSDP_Manager& cmanager)
     
 }
 
-int SSDP_Manager::setInterface()
+bool SSDP_Manager::setInterface()
 {
-    return (lssdp_network_interface_update(&client) == SUCCESS) ? 1 : 0;
+    return (lssdp_network_interface_update(&client) == SUCCESS);
 }
 
-int SSDP_Manager::checkForDevices()
+bool SSDP_Manager::checkForDevices()
 {   
     FD_ZERO(&fs);
    	FD_SET(client.sock, &fs);
@@ -70,7 +75,7 @@ int SSDP_Manager::checkForDevices()
     if (ret > 0) {
     	ret = lssdp_socket_read(&client);
     }
-	return (ret == SUCCESS) ? 1 : 0;
+	return (ret == SUCCESS);
 }
 
 void SSDP_Manager::operator()()

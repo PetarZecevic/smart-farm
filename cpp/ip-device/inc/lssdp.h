@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+    extern "C" {
+#endif
+
 #ifndef __LSSDP_H
 #define __LSSDP_H
 
@@ -189,4 +193,8 @@ int lssdp_neighbor_check_timeout(lssdp_ctx * lssdp);
  */
 void lssdp_set_log_callback(void (* callback)(const char * file, const char * tag, int level, int line, const char * func, const char * message));
 
+#endif
+
+#ifdef __cplusplus
+    }
 #endif

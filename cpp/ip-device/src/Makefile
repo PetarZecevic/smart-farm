@@ -15,8 +15,11 @@ $(ODIR)/lssdp.o : lssdp.c
 $(ODIR)/ssdp_client.o: ssdp_client.cpp
 	$(CXX) $(CXXFLAGS) -g -c $^ -o $@
 
+$(ODIR)/mqtt_client.o : mqtt_client.cpp
+	$(CXX) $(CXXFLAGS) -I /usr/local/include -g -c $^ -o $@
+
 # -Wl,-R/libpath eksplicitno naglasava odakle da potrazi biblioteke u runtime linkovanju.
-main: $(ODIR)/ssdp_client.o $(ODIR)/lssdp.o main.cpp
+main: $(ODIR)/ssdp_client.o $(ODIR)/lssdp.o $(ODIR)/mqtt_client.o main.cpp
 	$(CXX) $(CXXFLAGS) -I /usr/local/include -L $(LDIR) -g $^ -o $@ $(LIBS) -Wl,-R$(LDIR)
 	
 all: main

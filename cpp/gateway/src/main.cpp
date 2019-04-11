@@ -10,7 +10,7 @@ int main()
     string name = "Gateway1";
     string userId = "pz97";
 
-    thread ssdp_handler{SSDP_Manager(name, userId, true)};
+    thread ssdp_handler{SSDP_Manager(name, userId, 1883, true)};
     ssdp_handler.join();
     
     return 0;

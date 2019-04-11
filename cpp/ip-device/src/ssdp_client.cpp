@@ -21,10 +21,12 @@ SSDP_Client::SSDP_Client(std::string usn, bool debug)
 	client.network_interface_changed_callback = this->show_interface_list_and_rebind_socket;
 	client.neighbor_list_changed_callback = this->show_neighbor_list;
 	client.packet_received_callback = this->show_ssdp_packet;
+    // Remember usn.
+    this->usn = usn;
 }
 
 // It's assumes that socket is configured and opened.
-int SSDP_Client::checkMessages()
+bool SSDP_Client::checkMessages()
 {
 	FD_ZERO(&fs);
    	FD_SET(client.sock, &fs);
@@ -50,18 +52,18 @@ int SSDP_Client::checkMessages()
         ret = -1;
     }
 
-	return (ret == SUCCESS) ? 1 : 0;
+	return (ret == SUCCESS);
 }
 
 // Sends MSEARCH message to find controler.
-int SSDP_Client::searchControler()
+bool SSDP_Client::searchControler()
 {
 	int ret;
 	if((ret = lssdp_network_interface_update(&client)) == SUCCESS)
 	{
 		ret = lssdp_send_msearch(&client);
 	}
-	return (ret == SUCCESS) ? 1 : 0;
+	return (ret == SUCCESS);
 }
 
 // Private
