@@ -18,17 +18,21 @@ typedef struct IPInfo
 class MQTT_Client
 {
 public:
+    using message_handler = FP<void, MQTT::MessageData&>;
     MQTT_Client(IPInfo_t info);
     void setLog(std::string ssdp_log);
     bool connectToBroker(std::string brokerLocation, int port);
     bool sendInfo();
+    void sayHello();
+
 private:
-    //void logMessageCallback(MQTT::MessageData& mdata);
+    void logCallback(MQTT::MessageData& mdata);
     IPInfo_t ipinfo;
     IPStack ipstack;
     MQTT::Client<IPStack, Countdown> client;
     std::string iplog;
     std::string gatewaylog;
+    static int arrived;
 };
 
 #endif // MQTT_CLIENT_HPP

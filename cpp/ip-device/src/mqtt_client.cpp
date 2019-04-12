@@ -1,8 +1,28 @@
 #include "mqtt_client.hpp"
-#include <iostream>
 #include <cstdio>
 
-static int arrived = 0;
+/*
+class CallbackFunction
+{
+public:
+    virtual void operator()(MQTT::MessageData& data) = 0;
+};
+
+class LogCallback : public virtual CallbackFunction
+{
+public:
+    void operator()(MQTT::MessageData& mdata) override
+    {
+        MQTT::Message &message = mdata.message;
+        printf("Message arrived: qos %d, retained %d, dup %d, packetid %d\n", 
+            message.qos, message.retained, message.dup, message.id);
+        printf("Payload %.*s\n", (int)message.payloadlen, (char*)message.payload);
+        arrived++;
+    }
+};
+*/
+
+int MQTT_Client::arrived = 0;
 
 // Public
 MQTT_Client::MQTT_Client(IPInfo_t info):
@@ -44,8 +64,19 @@ bool MQTT_Client::connectToBroker(std::string brokerLocation, int port)
     return true;
 }
 
-
+/*
 void static logMessageCallback(MQTT::MessageData& mdata)
+{
+    MQTT::Message &message = mdata.message;
+
+    printf("Message arrived: qos %d, retained %d, dup %d, packetid %d\n", 
+		message.qos, message.retained, message.dup, message.id);
+    printf("Payload %.*s\n", (int)message.payloadlen, (char*)message.payload);
+    arrived++;
+}
+*/
+
+void MQTT_Client::logCallback(MQTT::MessageData& mdata)
 {
     MQTT::Message &message = mdata.message;
 
@@ -57,7 +88,9 @@ void static logMessageCallback(MQTT::MessageData& mdata)
 
 bool MQTT_Client::sendInfo()
 {
-    int rc = client.subscribe(iplog.c_str(), MQTT::QOS2, logMessageCallback);   
+    int rc = client.subscribe(iplog.c_str(), MQTT::QOS2,
+        message_handler(this, &MQTT_Client::logCallback));
+       
 	if (rc != MQTT::returnCode::SUCCESS)
 	{
 		return false;
@@ -70,8 +103,7 @@ bool MQTT_Client::sendInfo()
         rc = client.publish(gatewaylog.c_str(), (void*)builder.c_str(), builder.length(), MQTT::QOS2);
         if(rc != MQTT::returnCode::SUCCESS)
             return false;
-        while (arrived == 0)
-            client.yield(100);
+        client.yield(100);
     }
     return true;
 }
