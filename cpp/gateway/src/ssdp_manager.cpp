@@ -3,104 +3,139 @@
 #include <cstdio>
 #include <cstdlib>
 #include <unistd.h>     // select
-#include <sys/time.h>   // gettimeofday
 
 #define SUCCESS 0
-#define INTERFACE_UPDATE_TIMEOUT 500*1000 // ms
+#define INTERFACE_UPDATE_TIMEOUT 2000 // ms
+#define CHECK_DEVICES_TIMEOUT 1000 // ms
+#define REBIND_TIMEOUT 1000 // ms
 
 // Public
 SSDP_Manager::SSDP_Manager(std::string usn, std::string userId, int brokerPort, bool debug)
 {
     // Set parameters for client.
-    client.sock = 0;
-	client.port = 1900;
-    client.neighbor_list = NULL;
-    client.neighbor_timeout = 5000;
-	client.debug = debug;
-	strcpy(client.header.search_target, "IP");
-	strcpy(client.header.unique_service_name, usn.c_str());
-	strcpy(client.header.device_type, "IOTGATEWAY");
+    client_.sock = 0;
+	client_.port = 1900;
+    client_.neighbor_list = NULL;
+    client_.neighbor_timeout = 5000;
+	client_.debug = debug;
+	strcpy(client_.header.search_target, "IP");
+	strcpy(client_.header.unique_service_name, usn.c_str());
+	strcpy(client_.header.device_type, "IOTGATEWAY");
     std::string logTopic = userId + "/gateway/" + usn + "/log";
-    strcpy(client.header.sm_id, logTopic.c_str());
-    memset(client.header.location.prefix, '\0', LSSDP_FIELD_LEN);
-    memset(client.header.location.domain, '\0', LSSDP_FIELD_LEN);
-    sprintf(client.header.location.suffix, ":%s", std::to_string(brokerPort).c_str());
+    strcpy(client_.header.sm_id, logTopic.c_str());
+    memset(client_.header.location.prefix, '\0', LSSDP_FIELD_LEN);
+    memset(client_.header.location.domain, '\0', LSSDP_FIELD_LEN);
+    sprintf(client_.header.location.suffix, ":%s", std::to_string(brokerPort).c_str());
 	// Set callbacks.
 	lssdp_set_log_callback(log_callback);
-	client.network_interface_changed_callback = show_interface_list_and_rebind_socket;
-	client.neighbor_list_changed_callback = show_neighbor_list;
-	client.packet_received_callback = show_ssdp_packet;
+	client_.network_interface_changed_callback = show_interface_list_and_rebind_socket;
+	client_.neighbor_list_changed_callback = show_neighbor_list;
+	client_.packet_received_callback = show_ssdp_packet;
 }
 
 SSDP_Manager::SSDP_Manager(const SSDP_Manager& cmanager)
 {
-    client.sock = cmanager.client.sock;
-	client.port = cmanager.client.port;
-    client.neighbor_list = NULL; // Don't copy neighbors.
-    client.neighbor_timeout = cmanager.client.neighbor_timeout;
-	client.debug = cmanager.client.debug;
-	strcpy(client.header.search_target, cmanager.client.header.search_target);
-	strcpy(client.header.unique_service_name, cmanager.client.header.unique_service_name);
-	strcpy(client.header.device_type, cmanager.client.header.device_type);
-    strcpy(client.header.sm_id, cmanager.client.header.sm_id);
-    strcpy(client.header.location.prefix, cmanager.client.header.location.prefix);
-    strcpy(client.header.location.domain, cmanager.client.header.location.domain);
-    strcpy(client.header.location.suffix, cmanager.client.header.location.suffix);
+    client_.sock = cmanager.client_.sock;
+	client_.port = cmanager.client_.port;
+    client_.neighbor_list = NULL; // Don't copy neighbors.
+    client_.neighbor_timeout = cmanager.client_.neighbor_timeout;
+	client_.debug = cmanager.client_.debug;
+	strcpy(client_.header.search_target, cmanager.client_.header.search_target);
+	strcpy(client_.header.unique_service_name, cmanager.client_.header.unique_service_name);
+	strcpy(client_.header.device_type, cmanager.client_.header.device_type);
+    strcpy(client_.header.sm_id, cmanager.client_.header.sm_id);
+    strcpy(client_.header.location.prefix, cmanager.client_.header.location.prefix);
+    strcpy(client_.header.location.domain, cmanager.client_.header.location.domain);
+    strcpy(client_.header.location.suffix, cmanager.client_.header.location.suffix);
 
     // Callbacks are not copied.
     lssdp_set_log_callback(log_callback);
-    client.network_interface_changed_callback = show_interface_list_and_rebind_socket;
-	client.neighbor_list_changed_callback = show_neighbor_list;
-	client.packet_received_callback = show_ssdp_packet;
+    client_.network_interface_changed_callback = show_interface_list_and_rebind_socket;
+	client_.neighbor_list_changed_callback = show_neighbor_list;
+	client_.packet_received_callback = show_ssdp_packet;
     
 }
 
 bool SSDP_Manager::setInterface()
 {
-    return (lssdp_network_interface_update(&client) == SUCCESS);
+    return (lssdp_network_interface_update(&client_) == SUCCESS);
 }
 
 bool SSDP_Manager::checkForDevices()
 {   
-    FD_ZERO(&fs);
-   	FD_SET(client.sock, &fs);
+    FD_ZERO(&fs_);
+   	FD_SET(client_.sock, &fs_);
     struct timeval tv;
     tv.tv_sec = 0;
 	tv.tv_usec = 500 * 1000; // 500 ms
 	
-    int ret = select(client.sock + 1, &fs, NULL, NULL, &tv);
+    int ret = select(client_.sock + 1, &fs_, NULL, NULL, &tv);
     if (ret < 0) {
         printf("select error, ret = %d\n", ret);
     }
     if (ret > 0) {
-    	ret = lssdp_socket_read(&client);
+    	ret = lssdp_socket_read(&client_);
     }
-	return (ret == SUCCESS);
+    return (ret == SUCCESS);
+}
+
+bool SSDP_Manager::rebindSocket()
+{
+    bool ret = true;
+    if (lssdp_socket_create(&client_) != SUCCESS) 
+    {
+        puts("SSDP create socket failed");
+        ret = false;
+    }
+    return ret;
 }
 
 void SSDP_Manager::operator()()
 {
+    const int REBIND_TRY = 3;
+
     while(true)
     {
         if(setInterface())
         {
-            bool error = false;
-            while(!error)
+            bool rebindSuccess = false;
+            // Try few times to rebind socket.
+            for(int i = 0; i < REBIND_TRY; i++)
             {
-                if(!checkForDevices())
-                    error = true;    
+                if(rebindSocket())
+                {
+                    rebindSuccess = true;
+                    break;
+                }
+                else
+                    usleep(REBIND_TIMEOUT * 1000);
+                
             }
+            if(rebindSuccess)
+            {
+                // Check for messages in loop.
+                while(true)
+                {
+                    if(!checkForDevices())
+                        break;
+                    else
+                        usleep(CHECK_DEVICES_TIMEOUT * 1000);
+                }    
+            }
+            else
+                // End ssdp manager-loop if rebind constantly failes.
+                break;
         }
         else
         {
-            usleep(INTERFACE_UPDATE_TIMEOUT);
+            usleep(INTERFACE_UPDATE_TIMEOUT * 1000);
         }
     }
 }
 
 SSDP_Manager::~SSDP_Manager()
 {
-    lssdp_socket_close(&client);    
+    lssdp_socket_close(&client_);    
 }
 
 // Private
@@ -128,13 +163,6 @@ int SSDP_Manager::show_interface_list_and_rebind_socket(lssdp_ctx * lssdp)
         );
     }
     printf("%s\n", i == 0 ? "Empty" : "");
-
-    // 2. re-bind SSDP socket
-    if (lssdp_socket_create(lssdp) != 0) {
-        puts("SSDP create socket failed");
-        return -1;
-    }
-
     return 0;
 }
 

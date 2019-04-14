@@ -1,23 +1,23 @@
-#ifndef MQTT_SERVER_HPP
-#define MQTT_SERVER_HPP
+#ifndef MQTT_MANAGER_HPP
+#define MQTT_MANAGER_HPP
 
 #include <string>
 #include <iostream>
 #include <mqtt/async_client.h>
 
 
-class MQTT_Server
+class MQTT_Manager
 {
 public:
-    MQTT_Server(std::string userId, std::string gatewayId, std::string brokerAddress);
+    MQTT_Manager(std::string userId, std::string gatewayId, std::string brokerAddress);
     bool connectToBroker(mqtt::connect_options coptions);
     bool start();
-    std::string getUserId() const {return user_id;};
+    std::string getUserId() const {return user_id_;};
 private:
-    std::string user_id;
-    std::string gateway_id;
-    std::string broker_addr;
-    mqtt::async_client server;
+    std::string user_id_;
+    std::string gateway_id_;
+    std::string broker_addr_;
+    mqtt::async_client mqtt_client_;
         /**
      * Local callback class for use with the client connection.
      * This is primarily intended to receive messages.
@@ -28,7 +28,7 @@ private:
         // The MQTT client
         mqtt::async_client& cli_;
         // The MQTT manager
-        MQTT_Server& manager_;
+        MQTT_Manager& manager_;
 
         // Re-connection failure
         void on_failure(const mqtt::token& tok) override;
@@ -45,12 +45,12 @@ private:
         void delivery_complete(mqtt::delivery_token_ptr token) override {}
 
     public:
-        callback(mqtt::async_client& cli, MQTT_Server& manager): 
+        callback(mqtt::async_client& cli, MQTT_Manager& manager): 
             cli_(cli),
             manager_(manager)
         {}
     };
-    callback cb;
+    callback cb_;
 };
 
-#endif // MQTT_SERVER_HPP
+#endif // MQTT_MANAGER_HPP

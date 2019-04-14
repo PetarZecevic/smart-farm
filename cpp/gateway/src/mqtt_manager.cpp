@@ -1,23 +1,23 @@
-#include "mqtt_server.hpp"
+#include "mqtt_manager.hpp"
 
 // Callback.
 // Re-connection failure
-void MQTT_Server::callback::on_failure(const mqtt::token& tok){
+void MQTT_Manager::callback::on_failure(const mqtt::token& tok){
     std::cout << "Connection attempt failed" << std::endl;
 }
 
-void MQTT_Server::callback::connected(const std::string& cause){
+void MQTT_Manager::callback::connected(const std::string& cause){
 	std::cout << "\nConnection success" << std::endl;
 }
 
-void MQTT_Server::callback::connection_lost(const std::string& cause) 
+void MQTT_Manager::callback::connection_lost(const std::string& cause) 
 {
     std::cout << "\nConnection lost" << std::endl;
     if (!cause.empty())
         std::cout << "\tcause: " << cause << std::endl;
 }
 
-void MQTT_Server::callback::message_arrived(mqtt::const_message_ptr msg)
+void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
 {
 		std::cout << "Message arrived" << std::endl;
 		std::cout << "\ttopic: '" << msg->get_topic() << "'" << std::endl;
@@ -29,27 +29,27 @@ void MQTT_Server::callback::message_arrived(mqtt::const_message_ptr msg)
 }
 
 
-std::string MQTT_Server::callback::parseIpTopic(std::string message)
+std::string MQTT_Manager::callback::parseIpTopic(std::string message)
 {
     return manager_.getUserId() + "/" + message + "/log";
 }
 
 // Server.
-MQTT_Server::MQTT_Server(std::string userId, std::string gatewayId, std::string brokerAddress):
-    user_id(userId),
-    gateway_id(gatewayId),
-    broker_addr(brokerAddress),
-    server(broker_addr, user_id),
-    cb(server, *this)
+MQTT_Manager::MQTT_Manager(std::string userId, std::string gatewayId, std::string brokerAddress):
+    user_id_(userId),
+    gateway_id_(gatewayId),
+    broker_addr_(brokerAddress),
+    mqtt_client_(broker_addr_, user_id_),
+    cb_(mqtt_client_, *this)
 {
-    server.set_callback(cb);
+    mqtt_client_.set_callback(cb_);
 }
 
-bool MQTT_Server::connectToBroker(mqtt::connect_options coptions)
+bool MQTT_Manager::connectToBroker(mqtt::connect_options coptions)
 {
     try
     {
-        mqtt::token_ptr conntok = server.connect(coptions);
+        mqtt::token_ptr conntok = mqtt_client_.connect(coptions);
         conntok->wait_for(500);
     }catch(const mqtt::exception& exc)
     {
@@ -59,14 +59,14 @@ bool MQTT_Server::connectToBroker(mqtt::connect_options coptions)
     return true;
 }
 
-bool MQTT_Server::start()
+bool MQTT_Manager::start()
 {
-    if(server.is_connected())
+    if(mqtt_client_.is_connected())
     {
         try
         {
-            std::string logTopic = user_id + "/gateway/" + gateway_id + "/log";
-            server.subscribe(logTopic, 2);
+            std::string logTopic = user_id_ + "/gateway/" + gateway_id_ + "/log";
+            mqtt_client_.subscribe(logTopic, 2);
         }
         catch(const mqtt::exception& exc)
         {

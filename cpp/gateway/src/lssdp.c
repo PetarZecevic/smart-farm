@@ -198,7 +198,8 @@ end:
 
     // 2. invoke network interface changed callback
     if (lssdp->network_interface_changed_callback != NULL) {
-        lssdp->network_interface_changed_callback(lssdp);
+        // Added: check result of callback function for easier error handling.
+        result = lssdp->network_interface_changed_callback(lssdp);
     }
 
     return result;

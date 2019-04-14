@@ -2,7 +2,7 @@
 #include <iostream>
 #include <thread>
 #include <unistd.h>
-#include "mqtt_server.hpp"
+#include "mqtt_manager.hpp"
 
 using namespace std;
 
@@ -18,10 +18,10 @@ int main()
     con_opts.set_mqtt_version(3);
     con_opts.set_clean_session(true);
 
-    MQTT_Server mqtt_server(userId, name, brokerAddr);
-    if(mqtt_server.connectToBroker(con_opts))
+    MQTT_Manager mqtt_manager(userId, name, brokerAddr);
+    if(mqtt_manager.connectToBroker(con_opts))
     {
-        if(mqtt_server.start())
+        if(mqtt_manager.start())
         {
             std::cout << "Gateway started" << std::endl;
             thread ssdp_handler{SSDP_Manager(name, userId, 1883, true)};

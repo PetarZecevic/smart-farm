@@ -27,12 +27,12 @@ public:
 
 private:
     void logCallback(MQTT::MessageData& mdata);
-    IPInfo_t ipinfo;
-    IPStack ipstack;
-    MQTT::Client<IPStack, Countdown> client;
-    std::string iplog;
-    std::string gatewaylog;
-    static int arrived;
+    IPInfo_t ipinfo_;
+    IPStack ipstack_;
+    MQTT::Client<IPStack, Countdown> client_;
+    std::string iplog_;
+    std::string gatewaylog_;
+    static int arrived_;
 };
 
 #endif // MQTT_CLIENT_HPP
