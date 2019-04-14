@@ -4,3 +4,6 @@ Makefile.
 Prerequisities:
 	Eclipse Paho Embedded MQTT C++ library installed and .h files moved to /usr/local/include/mqtt-embedded directory,
 	.so files located in lib folder, .so files built for raspberry.
+	
+	Rapid JSON lib:
+		.h files moved to /usr/local/include/rapidjson directory

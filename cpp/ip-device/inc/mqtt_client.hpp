@@ -7,32 +7,24 @@
 #include "mqtt-embedded/MQTTClient/MQTTClient.h"
 #define DEFAULT_STACK_SIZE -1
 #include "mqtt-embedded/MQTTClient/linux.cpp"
-
-typedef struct IPInfo
-{
-	std::string id;
-	std::string group;
-}IPInfo_t;
-
+#include "ipinfo.hpp"
 
 class MQTT_Client
 {
 public:
     using message_handler = FP<void, MQTT::MessageData&>;
-    MQTT_Client(IPInfo_t info);
+    MQTT_Client(IPInfo& info);
     void setLog(std::string ssdp_log);
     bool connectToBroker(std::string brokerLocation, int port);
     bool sendInfo();
-    void sayHello();
-
+    void waitFor(int milliseconds);
 private:
     void logCallback(MQTT::MessageData& mdata);
-    IPInfo_t ipinfo_;
+    IPInfo ipinfo_;
     IPStack ipstack_;
     MQTT::Client<IPStack, Countdown> client_;
     std::string iplog_;
     std::string gatewaylog_;
-    static int arrived_;
 };
 
 #endif // MQTT_CLIENT_HPP

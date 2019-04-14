@@ -9,7 +9,7 @@
 
 using namespace std;
 
-void findControler(SSDP_Client& cl)
+void findGateway(SSDP_Client& cl)
 {
 	// Trying to find iot controler's.
 	while(true)
@@ -38,14 +38,14 @@ void findControler(SSDP_Client& cl)
 
 int main()
 {
-	string name = string("IP1");
-	SSDP_Client c1(name, true);
-	
-	findControler(c1);
+	IPInfo info;
+	info.loadDescFromFile("info.json");
+	SSDP_Client c1(info.getByKey("id"), true);
 
-	IPInfo_t info;
-	info.id = name;
-	info.group = "sensors";
+	cout << "JSON : " << info.getDescriptionString() << endl;
+	cout << "JSON : " << info.getDescriptionString() << endl;
+
+	findGateway(c1);
 
 	// Start MQTT logic.
 	MQTT_Client mqtt_client(info);
@@ -62,33 +62,9 @@ int main()
 	{
 		if(mqtt_client.sendInfo())
 		{
-			cout << "Bravo" << endl;
+			cout << "Sent info" << endl;
+			mqtt_client.waitFor(1000);
 		}
 	}
-	/*
-	printf("MQTT connected\n");
-	rc = client.subscribe(logIpTopic.c_str(), MQTT::QOS2, messageArrived);   
-	if (rc != MQTT::returnCode::SUCCESS)
-	{
-		printf("rc from MQTT subscribe is %d\n", rc);
-	}
-	else
-	{
-		MQTT::Message message;
-		// QoS 0
-		char buf[100];
-		sprintf(buf, "Hello World!");
-		message.qos = MQTT::QOS0;
-		message.retained = false;
-		message.dup = false;
-		message.payload = (void*)buf;
-		message.payloadlen = strlen(buf)+1;
-		rc = client.publish(logGatewayTopic.c_str(), message);
-		if (rc != 0)
-			printf("Error %d from sending QoS 0 message\n", rc);
-		else while (arrivedcount == 0)
-			client.yield(100);
-	*/
-
 	return 0;
 }

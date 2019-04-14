@@ -22,10 +22,10 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
 		std::cout << "Message arrived" << std::endl;
 		std::cout << "\ttopic: '" << msg->get_topic() << "'" << std::endl;
 		std::cout << "\tpayload: '" << msg->to_string() << "'\n" << std::endl;
-        std::string content = msg->to_string();
-        std::string iptopic = parseIpTopic(content);
-        mqtt::message_ptr m = mqtt::make_message(iptopic, "Hello from MQTT Server!");
-        cli_.publish(m);
+        //std::string content = msg->to_string();
+        //std::string iptopic = parseIpTopic(content);
+        //mqtt::message_ptr m = mqtt::make_message(iptopic, "Hello from MQTT Server!");
+        //cli_.publish(m);
 }
 
 

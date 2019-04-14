@@ -23,11 +23,11 @@ public:
 */
 
 // Public
-MQTT_Client::MQTT_Client(IPInfo_t info):
-    ipinfo_(info),
+MQTT_Client::MQTT_Client(IPInfo& info):
     ipstack_(),
     client_(ipstack_)
 {
+    ipinfo_.copy(info),
     iplog_ = std::string("");
     gatewaylog_ = std::string("");
 }
@@ -37,7 +37,8 @@ void MQTT_Client::setLog(std::string ssdp_log)
     gatewaylog_ = ssdp_log;
     int pos = gatewaylog_.find_first_of('/', 0);
 	iplog_ = gatewaylog_.substr(0, pos);
-	iplog_ += "/" + ipinfo_.group + "/" + ipinfo_.id + "/log";
+	iplog_ += "/" + ipinfo_.getByKey("group") + "/" + ipinfo_.getByKey("id") + "/log";
+    printf("iplog: %s\n", iplog_.c_str());
 }
 
 bool MQTT_Client::connectToBroker(std::string brokerLocation, int port)
@@ -52,7 +53,7 @@ bool MQTT_Client::connectToBroker(std::string brokerLocation, int port)
 		printf("MQTT connecting\n");
     	MQTTPacket_connectData data = MQTTPacket_connectData_initializer;       
     	data.MQTTVersion = 3;
-    	data.clientID.cstring = (char*)ipinfo_.id.c_str();
+    	data.clientID.cstring = (char*)ipinfo_.getByKey("id").c_str();
 		rc = client_.connect(data);
 		if (rc != MQTT::returnCode::SUCCESS)
 		{
@@ -71,6 +72,11 @@ void MQTT_Client::logCallback(MQTT::MessageData& mdata)
     printf("Payload %.*s\n", (int)message.payloadlen, (char*)message.payload);
 }
 
+void MQTT_Client::waitFor(int milliseconds)
+{
+    client_.yield(milliseconds);
+}
+
 bool MQTT_Client::sendInfo()
 {
     int rc = client_.subscribe(iplog_.c_str(), MQTT::QOS2,
@@ -84,11 +90,10 @@ bool MQTT_Client::sendInfo()
     {
         // Send device information to gateway.
         std::string builder = "";
-        builder += ipinfo_.group + "/" + ipinfo_.id;
+        builder += ipinfo_.getDescriptionString();
         rc = client_.publish(gatewaylog_.c_str(), (void*)builder.c_str(), builder.length(), MQTT::QOS2);
         if(rc != MQTT::returnCode::SUCCESS)
             return false;
-        client_.yield(100);
     }
     return true;
 }

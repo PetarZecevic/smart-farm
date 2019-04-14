@@ -1,0 +1,75 @@
+klasa Filter:
+	Ulaz.
+	Izlaz.
+	Minimum.
+	Maksimum.
+	Lista specificnih vrednosti.
+	Obavestenje o prekoracenju praga.
+	Obavestenje o dostizanju specificne vrednosti.
+	
+
+klasa Reaktor:
+	Vrednost koja ce biti proizvedena.
+	Servis koji ce biti pozvan i kome ce biti prosledjena vrednost.
+
+klasa Uredjaj:
+	Cuva svoje stanje u odredjenoj strukturi koja ce sadrzati sve parametre i njihove vrednosti.
+	Cuva servise koje podrzava u nekoj strukturi.
+	Pristup celokupnom stanju ili nekom odredjenom parametru.
+	Promena odredjenog parametra.
+	Poziv odredjenog servisa.		
+
+klasa Servis:
+	[Nivo apstrakcije iznad klase Uredjaj tako da jedan servis moze da se mapira na vise uredjaja,
+	Potrebno je da uredjaj na neki nacin oznaci koje tipove servisa podrzava, pa da se shodno tome mogu pozvati servisi
+	nad konkretnim objektima klase Uredjaj, jedna varijanta je da klasa uredjaj cuva u nekoj strukturi koje servise podrzava, tj.
+	tip servisa i parametar koji servis moze da menja.
+	]
+	Imamo dva tipa servisa pasivni i aktivni.
+		-Pasivni servis vraca informaciju o odredjenom parametru uredjaja ili o celokupnom stanju uredjaja.
+		-Aktivni servis moze da modifikuje odredjeni parametar uredjaja.
+	Definisani parametri koje servis moze da menja.
+	Nacin na koji menja parametar, tj. vrednost koja ce biti prosledjena uredjaju.
+		-Recimo moze da upali ili iskljuci nesto, ili da prosledi konrektnu vrednost
+		koju uredjaj treba da dostigne za dati parametar.
+		-To svojstvo delovanja nad parametrom mora biti pridruzeno uz sam parametar.
+		Recimo jedan parametar moze predstavljati logicki tip, tj. da li je nesto
+		upaljeno ili ugaseno dok drugi moze da predstavlja intenzitet osvetljenja kao
+		ceo broj.
+	Jedna varijanta je da uz parametar bude pridruzena i akcija koja ce se izvrsiti,
+	pa mozemo imati vise tipova akcija: switch, jumper, stepper.
+		Switch: kaze da se pali ili gasi nesto.
+		Jumper: kaze da se parametar trenutno promeni na neku vrednost.
+		Stepper: kaze da se parametar promeni sa odredjenim korakom
+		Timer: moze da objedinjuje sve prethodne akcije, tako sto ce im pridruziti
+				vremenski interval nakon kog treba akcija da se izvrsi.
+				Treba odluci ko ce da preuzme odgovornost nad brojanjem vremena da li kontroler ili uredjaj kojim se upravlja.
+
+
+Format MQTT topika:
+	kompanija / id_vlasnika / grupa_komponenti / komponenta / id_komponente / metod [get, update, report] 
+
+Pitanja i razmatranja:
+	- Da li da uredjaj direktno komunicira sa uredjajem ili da se komunikacija odvija preko centralnog kontrolera?
+		Odg: Za slucaj lokalne komunikacije unutar interne mreze je potrebno da informacije od korisnicke aplikacije dolaze prvo do
+			 centralnog kontrolera na kom se nalazi lokalni MQTT broker, pa da se onda prosledjuju uredjaju ili da se prethodno filtriraju na neki nacin
+			 kako se ne bi dozvolile stetne promene na uredjaju u smislu okoline u kojoj se uredjaj nalazi, te promene mogu biti slucajno prouzrokovane ili namerno,
+			 bilo bi pozeljno upozoriti korisnika o mogucoj stetnosti promene koja bi mogla biti prouzrokovana takvim podesavanjem ali za tako nesto bi centralni kontroler
+			 morao da poznaje okolinu dovoljno dobro, tj. sve uredjaje u okolini i sam sredinu u kojoj se uredjaji nalaze pa da na osnovu toga donosi odluku o efektu neke promene na sistem.
+			  
+	- Da li je potrebno definisati servise ili je dovoljno nad samim uredjajem dovoljno pozivati metode za promenu ili citanje odredjenih parametara?
+	- Ako imamo servise da li je logicnije da oni budu jedan nivo apstrakcije iznad uredjaja i da mogu na taj nacin da pozivaju metode uredjaja kako bi postigli zeljene efekte?
+	- Koliko dovoljno dobro treba servis da poznaje neki uredjaj da bi vrsio promene na njemu, ako mora da poznaje sve njegove parametre, da li je bolja opcija da servisi budu deo samog uredjaja.
+	- Ako servisi nisu deo implementacije klase Uredjaj da li onda mora postaviti neka ogranicenja u svojstvu nekih parametara, tj. da li servis moze da ih menja ili ne moze.
+	- Takodje na koji nacin ce servis da menja vrednosti parametara, da li ih postavlja na odredjenu vrednost ili poziva neku od Akcija koju smo prethodno opisali?
+	- Ako poziva neku od akcija, da li je taj dizajn modularniji, jer ce mu onda neko sa strane proslediti koju osobinu treba da menja i na koji nacin?
+	- Da li je u tom slucaju bolja opcija da uredjaj moze prihvati objekat klase Akcija i da onda vrsi promenu da svojom nekim svojim parametrom ukoliko je parametar takvog tipa da moze da se menja?
+	- Ako promene vrsimo samo lokalno tj. na senci(slici) uredjaja koju kontroler poseduje koje informacije u tom slucaju prosledjujemo samom uredjaju, da li prosledjujemo celo stanje ako azuriramo
+	  jedan ili vise parametara ili prosledjujemo stalno celokupno stanje nase slike koje uredjaj onda treba da pokrije?
+	  	[analogija sa shadow-service mehanizmom iz AWS platforme, gde imamo tekuce stanje i desired stanje koje predstavlja promene koje trebaju da budu primenjene nad uredjajem]
+	- Ako koristimo JSON format sa prenos podataka, koliko nam samo parsiranje usporava izvrsavanje komandi?
+	- Da li bi smo dobili na vremenu ako bismo za svaki parametar uredjaja napravili poseban topik i samo prosledjivali konkretne vrednosti na taj topik, 
+		i na taj nacin izbegli slanje JSON dokumenata i parsiranje istih, kako nam to utice na dizajn softvera? [Balans izmedju velicine i kompleksnosti poruka koje se prosledjuju i broja topika i opterecenja lokalnog MQTT brokera]
+		- Ako imamo situaciju da kontroler kod sebe ima kompletnu sliku uredjaja koji je povezan na njega, da li onda korisnik kada zatrazi informacije o stanju uredjaja dobija informacije od uredjaja ili od centralnog kontrolera?
+		- Da li je pametno da kontroler cuva kod sebe celokupnu sliku uredjaja, s'obzirom na memorijske zahteve usled cuvanja slika za veliki broj uredjaja?
+	

@@ -1,3 +1,1 @@
-- Napravi MQTT lokalni broker i klasu MQTT Server.
-- Napravi klasu MQTT klijent koju ce ip uredjaj da pokrene.
-- Obezbedi prenos informacija pomocu JSON strukture.
+- Obezbedi prenos informacija pomocu JSON strukture.[Uradjeno sa klijentske strane]

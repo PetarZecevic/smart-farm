@@ -1,3 +1,5 @@
-specifikacija.txt
 cpp/ip-device/obj/*.o
+cpp/ip-device/src/main
 cpp/gateway/obj/*.o
+cpp/gateway/src/main
+
