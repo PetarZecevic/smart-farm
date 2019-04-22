@@ -1,4 +1,5 @@
 #include "mqtt_manager.hpp"
+#include <rapidjson/document.h>
 
 // Callback.
 // Re-connection failure
@@ -19,19 +20,33 @@ void MQTT_Manager::callback::connection_lost(const std::string& cause)
 
 void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
 {
-		std::cout << "Message arrived" << std::endl;
-		std::cout << "\ttopic: '" << msg->get_topic() << "'" << std::endl;
-		std::cout << "\tpayload: '" << msg->to_string() << "'\n" << std::endl;
-        //std::string content = msg->to_string();
-        //std::string iptopic = parseIpTopic(content);
-        //mqtt::message_ptr m = mqtt::make_message(iptopic, "Hello from MQTT Server!");
-        //cli_.publish(m);
-}
-
-
-std::string MQTT_Manager::callback::parseIpTopic(std::string message)
-{
-    return manager_.getUserId() + "/" + message + "/log";
+    std::cout << "Message arrived" << std::endl;
+    std::cout << "\ttopic: '" << msg->get_topic() << "'" << std::endl;
+    std::cout << "\tpayload: '" << msg->to_string() << "'\n" << std::endl;
+    
+    std::string topic = msg->get_topic();
+    std::string content = msg->to_string();
+    if(topic == managerLog_)
+    {
+        rapidjson::Document deviceInfo;
+        deviceInfo.Parse(content.c_str());
+        if(!deviceInfo.HasParseError())
+        {
+            std::string iplog = manager_.getUserId() + "/" + deviceInfo["group"].GetString() + "/" + deviceInfo["id"].GetString() + "/log";
+            std::string ipreport = manager_.getUserId() + "/" + deviceInfo["group"].GetString() + "/" + deviceInfo["id"].GetString() + "/report";
+            try
+            {
+                cli_.subscribe(ipreport, 1);
+                mqtt::message_ptr pubm = mqtt::make_message(iplog, "OK");
+                pubm->set_qos(1);
+                cli_.publish(pubm);
+            }
+            catch(mqtt::exception& exc)
+            {
+                std::cout << exc.what() << std::endl;
+            } 
+        }
+    }
 }
 
 // Server.

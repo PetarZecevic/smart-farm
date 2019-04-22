@@ -60,10 +60,18 @@ int main()
 
 	if(mqtt_client.connectToBroker(ip, port))
 	{
-		if(mqtt_client.sendInfo())
+		if(mqtt_client.subscribe())
 		{
-			cout << "Sent info" << endl;
-			mqtt_client.waitFor(1000);
+			mqtt_client.waitFor(2000);
+			if(mqtt_client.sendInfo())
+			{
+				cout << "Sent info" << endl;
+				mqtt_client.waitFor(500);
+				if(mqtt_client.isReportAllowed())
+				{
+					cout << "Reporting parameters values..." << endl;
+				}
+			}
 		}
 	}
 	return 0;

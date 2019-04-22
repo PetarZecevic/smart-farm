@@ -36,6 +36,7 @@ std::string IPInfo::getDescriptionString()
     return strDesc_;
 }
 
+// Prepravi ovo tako da bude genericno, genericna provera tipa i genericna povratna vrednost. 
 std::string IPInfo::getByKey(const std::string key)
 {
     if(description_.IsObject())
@@ -48,6 +49,7 @@ std::string IPInfo::getByKey(const std::string key)
     return std::string("");
 }
 
+// Ovo takodje.
 std::string IPInfo::getByKey(const char* key)
 {
     if(description_.IsObject())

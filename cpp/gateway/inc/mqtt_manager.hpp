@@ -5,7 +5,6 @@
 #include <iostream>
 #include <mqtt/async_client.h>
 
-
 class MQTT_Manager
 {
 public:
@@ -13,6 +12,7 @@ public:
     bool connectToBroker(mqtt::connect_options coptions);
     bool start();
     std::string getUserId() const {return user_id_;};
+    std::string getGatewayId() const {return gateway_id_;};
 private:
     std::string user_id_;
     std::string gateway_id_;
@@ -29,7 +29,8 @@ private:
         mqtt::async_client& cli_;
         // The MQTT manager
         MQTT_Manager& manager_;
-
+        // Manager topic for device logging.
+        std::string managerLog_;
         // Re-connection failure
         void on_failure(const mqtt::token& tok) override;
         // (Re)connection success
@@ -41,14 +42,14 @@ private:
         void connection_lost(const std::string& cause) override;
         // Callback for when a message arrives.
         void message_arrived(mqtt::const_message_ptr msg) override;
-        std::string parseIpTopic(std::string message);
         void delivery_complete(mqtt::delivery_token_ptr token) override {}
-
     public:
         callback(mqtt::async_client& cli, MQTT_Manager& manager): 
             cli_(cli),
             manager_(manager)
-        {}
+        {
+            managerLog_ = manager_.getUserId() + "/gateway/" + manager_.getGatewayId() + "/log";
+        }
     };
     callback cb_;
 };
