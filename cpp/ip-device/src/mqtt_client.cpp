@@ -1,26 +1,7 @@
 #include "mqtt_client.hpp"
 #include <cstdio>
-
-/*
-class CallbackFunction
-{
-public:
-    virtual void operator()(MQTT::MessageData& data) = 0;
-};
-
-class LogCallback : public virtual CallbackFunction
-{
-public:
-    void operator()(MQTT::MessageData& mdata) override
-    {
-        MQTT::Message &message = mdata.message;
-        printf("Message arrived: qos %d, retained %d, dup %d, packetid %d\n", 
-            message.qos, message.retained, message.dup, message.id);
-        printf("Payload %.*s\n", (int)message.payloadlen, (char*)message.payload);
-        arrived++;
-    }
-};
-*/
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
 
 // Public
 MQTT_Client::MQTT_Client(IPInfo& info):
@@ -73,14 +54,51 @@ bool MQTT_Client::connectToBroker(std::string brokerLocation, int port)
 		printf("MQTT connecting\n");
     	MQTTPacket_connectData data = MQTTPacket_connectData_initializer;       
     	data.MQTTVersion = 3;
-    	data.clientID.cstring = (char*)ipinfo_.getByKey("id").c_str();
-		rc = client_.connect(data);
+        std::string id = ipinfo_.getByKey("id");
+    	data.clientID.cstring = (char*)id.c_str();
+        // Set last will message to notify gateway, when device disconnect.
+        data.will.message.cstring = (char*) "OFFLINE";
+        data.will.qos = MQTT::QOS1;
+        data.will.retained = 0;
+        data.will.topicName.cstring = (char*)topics_["report"].c_str();
+        data.willFlag = 1;
+
+        rc = client_.connect(data);
 		if (rc != MQTT::returnCode::SUCCESS)
 		{
 	    	return false;
 		}
     }	
     return true;
+}
+
+bool MQTT_Client::report(ReportFunction* repFunc)
+{
+    while(true)
+    {
+        rapidjson::Document diffState;
+        diffState.Parse("{}");
+        if(repFunc->operator()(diffState, ipinfo_.getStateDOM()))
+        {
+            // Send changed state.
+            if(!sendReport(diffState))
+                break;
+        }
+        waitFor(2000); // reporting on every 2 seconds.
+    }
+}
+
+bool MQTT_Client::sendReport(rapidjson::Document& state)
+{
+    bool result = true;
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    state.Accept(writer);
+
+    int rc = client_.publish(topics_["report"].c_str(), (void*)buffer.GetString(), buffer.GetSize(), MQTT::QOS1);
+    if(rc != MQTT::returnCode::SUCCESS)
+        result = false;
+    return result;
 }
 
 void MQTT_Client::logCallback(MQTT::MessageData& mdata)

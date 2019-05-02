@@ -3,7 +3,10 @@
 
 #include <string>
 #include <iostream>
+#include <unordered_map>
+#include <vector>
 #include <mqtt/async_client.h>
+#include "device.hpp"
 
 class MQTT_Manager
 {
@@ -11,8 +14,13 @@ public:
     MQTT_Manager(std::string userId, std::string gatewayId, std::string brokerAddress);
     bool connectToBroker(mqtt::connect_options coptions);
     bool start();
+    void registerDevice(std::string id, rapidjson::Document& info, rapidjson::Document& state);
+    void unregisterDevice(std::string id);
+    void mergeDeviceState(std::string id, const rapidjson::Document& state);
     std::string getUserId() const {return user_id_;};
     std::string getGatewayId() const {return gateway_id_;};
+    std::string getDevicesInfo();
+    std::unordered_map<std::string, Device>& getDevices() { return devices_;};
 private:
     std::string user_id_;
     std::string gateway_id_;
@@ -43,6 +51,8 @@ private:
         // Callback for when a message arrives.
         void message_arrived(mqtt::const_message_ptr msg) override;
         void delivery_complete(mqtt::delivery_token_ptr token) override {}
+        // Parsing function.
+        void split(const std::string& s, char delimiter, std::vector<std::string>& tokens);
     public:
         callback(mqtt::async_client& cli, MQTT_Manager& manager): 
             cli_(cli),
@@ -52,6 +62,7 @@ private:
         }
     };
     callback cb_;
+    std::unordered_map<std::string, Device> devices_;
 };
 
 #endif // MQTT_MANAGER_HPP

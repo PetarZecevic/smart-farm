@@ -1,7 +1,6 @@
 #include <iostream>
 //#include <chrono>
 #include <unistd.h>
-#include <cstdlib>
 #include "ssdp_client.hpp"
 #include "mqtt_client.hpp"
 
@@ -9,43 +8,39 @@
 
 using namespace std;
 
-void findGateway(SSDP_Client& cl)
+class MyReport : public ReportFunction
 {
-	// Trying to find iot controler's.
-	while(true)
+public:
+	bool operator()(rapidjson::Document& newState, rapidjson::Document& prevState) override
 	{
-		if(cl.searchControler())
+		bool difference = false;
+		// Measure temperature.
+		int temperature = rand() % 30 + 1;
+		rapidjson::Value temp;
+		temp.SetInt(temperature);
+		// If there is difference, signalize and change state.
+		if(temperature != prevState["temperature"].GetInt())
 		{
-			// Sent msearch.
-			cout << "Sent MSEARCH" << endl;
-			usleep(WAIT_TIME);
-			if(cl.checkMessages())
-			{
-				// Found IOT gateway.
-				cout << "Found gateway " << endl;
-				break;
-			}
+			difference = true;
+			prevState["temperature"].SetInt(temperature);
+			newState.AddMember("temperature", temp, newState.GetAllocator());
 		}
-		else
-		{
-			// Failed to send msearch, try again.
-			usleep(WAIT_TIME);
-		}
+		return difference;
 	}
-
-	return;
-}
+};
 
 int main()
 {
+	srand(time(0));
 	IPInfo info;
 	info.loadDescFromFile("info.json");
+	info.setState();
 	SSDP_Client c1(info.getByKey("id"), true);
 
 	cout << "JSON : " << info.getDescriptionString() << endl;
 	cout << "JSON : " << info.getDescriptionString() << endl;
 
-	findGateway(c1);
+	c1.findGateway();	
 
 	// Start MQTT logic.
 	MQTT_Client mqtt_client(info);
@@ -62,15 +57,19 @@ int main()
 	{
 		if(mqtt_client.subscribe())
 		{
-			mqtt_client.waitFor(2000);
+			mqtt_client.waitFor(2000); // 2 seconds.
 			if(mqtt_client.sendInfo())
 			{
 				cout << "Sent info" << endl;
 				mqtt_client.waitFor(500);
+				ReportFunction* myReport = new MyReport();
 				if(mqtt_client.isReportAllowed())
 				{
 					cout << "Reporting parameters values..." << endl;
+					// Send JSON report state.
+					mqtt_client.report(myReport);
 				}
+				delete myReport;
 			}
 		}
 	}

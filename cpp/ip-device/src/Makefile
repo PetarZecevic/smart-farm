@@ -3,15 +3,10 @@ IDIR = ../inc
 LDIR = ../lib
 
 CXX = arm-linux-gnueabihf-g++
-CXXFLAGS = -Wall -I $(IDIR) -mcpu=cortex-a7 -std=c++11 
-CC = arm-linux-gnueabihf-gcc
-CFLAGS = -Wall -I $(IDIR) -mcpu=cortex-a7 -mfloat-abi=hard
+CXXFLAGS = -Wall -I $(IDIR) -mcpu=cortex-a7 -std=c++11
 
-LIBS = -lMQTTPacketClient
+LIBS = -lssdp -lMQTTPacketClient
 
-$(ODIR)/lssdp.o : lssdp.c
-	$(CC) $(CFLAGS) -g -c $^ -o $@ 
-	
 $(ODIR)/ssdp_client.o: ssdp_client.cpp
 	$(CXX) $(CXXFLAGS) -g -c $^ -o $@
 
@@ -22,7 +17,7 @@ $(ODIR)/mqtt_client.o : mqtt_client.cpp
 	$(CXX) $(CXXFLAGS) -I /usr/local/include -g -c $^ -o $@
 
 # -Wl,-R/libpath eksplicitno naglasava odakle da potrazi biblioteke u runtime linkovanju.
-main: $(ODIR)/ssdp_client.o $(ODIR)/lssdp.o $(ODIR)/mqtt_client.o $(ODIR)/ipinfo.o main.cpp
+main: $(ODIR)/ssdp_client.o $(ODIR)/mqtt_client.o $(ODIR)/ipinfo.o main.cpp
 	$(CXX) $(CXXFLAGS) -I /usr/local/include -L $(LDIR) -g $^ -o $@ $(LIBS) -Wl,-R$(LDIR)
 	
 all: main

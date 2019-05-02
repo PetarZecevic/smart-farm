@@ -12,6 +12,7 @@ public:
 	bool checkMessages();
 	bool searchControler();
 	bool rebindSocket();
+	void findGateway();
 	std::string getLogTopic() { return gatewayLogTopic_; };
 	std::string getLocation() { return gatewayLocation_; };
 	std::string getUSN() { return usn_; };

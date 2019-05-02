@@ -2,10 +2,13 @@
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
 
 void IPInfo::copy(IPInfo& rhs)
 {
     description_.Swap(rhs.getDescriptionDOM());
+    state_.Swap(rhs.getStateDOM());
     strDesc_ = rhs.strDesc_;
 }
 
@@ -17,6 +20,34 @@ bool IPInfo::setDescription(std::string desc)
     if(!ret)
         strDesc_ = desc;
     return !ret;
+}
+
+bool IPInfo::setState()
+{
+    state_.Parse("{}");
+    const rapidjson::Value& params = description_["parameters"];
+    if(params.IsArray())
+    {
+        rapidjson::StringBuffer s;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(s);
+        writer.StartObject();
+        for(rapidjson::SizeType i = 0; i < params.Size(); i++)
+        {
+            writer.Key(params[i].GetString());
+            writer.Int(0);
+        }
+        writer.EndObject();
+        state_.Parse(s.GetString());
+        if(state_.HasParseError())
+        {
+            state_.Parse("{}");
+            return false;
+        }
+        else
+            return true;
+    }
+    else
+        return false;
 }
 
 bool IPInfo::loadDescFromFile(std::string filepath)

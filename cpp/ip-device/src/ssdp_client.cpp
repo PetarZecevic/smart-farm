@@ -6,6 +6,7 @@
 #include <sys/time.h>   // gettimeofday
 
 #define SUCCESS 0
+#define WAIT_TIME 1000*1000 // microseconds.
 
 // Public
 SSDP_Client::SSDP_Client(std::string usn, bool debug)
@@ -64,6 +65,29 @@ bool SSDP_Client::searchControler()
 		    ret = lssdp_send_msearch(&client_);
 	}
 	return (ret == SUCCESS);
+}
+
+void SSDP_Client::findGateway()
+{
+	// Trying to find iot controler's.
+	while(true)
+	{
+		if(searchControler())
+		{
+			usleep(WAIT_TIME);
+			if(checkMessages())
+			{
+				// Found IOT gateway.
+				break;
+			}
+		}
+		else
+		{
+			// Failed to send msearch, try again.
+			usleep(WAIT_TIME);
+		}
+	}
+	return;
 }
 
 // Private

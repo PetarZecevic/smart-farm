@@ -10,6 +10,13 @@
 #include "mqtt-embedded/MQTTClient/linux.cpp"
 #include "ipinfo.hpp"
 
+
+class ReportFunction
+{
+public:
+    virtual bool operator()(rapidjson::Document& newState, rapidjson::Document& prevState) = 0;
+};
+
 class MQTT_Client
 {
 public:
@@ -19,9 +26,11 @@ public:
     bool connectToBroker(std::string brokerLocation, int port);
     bool subscribe();
     bool sendInfo();
+    bool report(ReportFunction* repFunc);
     void waitFor(int milliseconds);
     bool isReportAllowed() {return reportAllowed_;};
 private:
+    bool sendReport(rapidjson::Document& state);
     void logCallback(MQTT::MessageData& mdata);
     void getCallback(MQTT::MessageData& mdata);
     void updateCallback(MQTT::MessageData& mdata);
