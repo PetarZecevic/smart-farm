@@ -1,0 +1,7 @@
+15:7:15 -> Connection success
+15:7:29 -> Device ip_device_1 connected.
+15:7:46 -> Command from user:
+{"command_type":"ALL","group":null,"device":null,"parameter":null,"value":null}
+15:7:53 -> Device ip_device_1 disconnected.
+15:8:1 -> Command from user:
+{"command_type":"ALL","group":null,"device":null,"parameter":null,"value":null}

@@ -14,13 +14,14 @@ std::unordered_map<std::string, rapidjson::Document> gDevices;
 
 void parseBrokerLocation(std::string location, std::string& ip, std::string& port);
 void parseGatewayId(std::string topic, std::string& gatewayId);
-char userInterface();
+int userInterface();
 bool parseCommand(std::vector<std::string>& tokens, rapidjson::Document& jsonCommand);
 bool getCommand(rapidjson::Document& jsonCommand);
 std::string commandTemplate();
 void split(const std::string& s, char delimiter, std::vector<std::string>& tokens);
 void printDevices();
 void clearScreen();
+void pause();
 
 int main(int argc, char** argv)
 {
@@ -56,24 +57,27 @@ int main(int argc, char** argv)
 				rapidjson::Document command;
 				std::string commandTemp = commandTemplate();
 				command.Parse(commandTemp.c_str());
-				char option = userInterface();
-				if(option != '0')
+				int option = userInterface();
+				if(option != -1)
 				{
 					switch(option)
 					{
-						case '1':
+						case 1:
 							command["command_type"].SetString("ALL");
 							mqttCli.sendCommand(command);
 							break;
-						case '2':
+						case 2:
 							mqttCli.getAllDevicesInfo(gDevices);
 							printDevices();
+							pause();
 							break;
-						case '3':
+						case 3:
 							if(getCommand(command))
 								mqttCli.sendCommand(command);
+							else
+								std::this_thread::sleep_for(std::chrono::seconds(2));
 							break;
-						case '4':
+						case 4:
 							finished = true;
 							break;
 						default:
@@ -83,8 +87,8 @@ int main(int argc, char** argv)
 				else
 				{
 					std::cout << "Invalid choice!" << std::endl;
+					std::this_thread::sleep_for(std::chrono::seconds(2));
 				}
-				std::this_thread::sleep_for(std::chrono::seconds(2));
 				clearScreen();
 			}
 		}
@@ -107,7 +111,7 @@ void parseGatewayId(std::string topic, std::string& gatewayId)
     gatewayId = topic.substr(begin, end-begin);
 }
 
-char userInterface()
+int userInterface()
 {
 	std::cout << "Options: " << std::endl;
 	std::cout << "\t1. Request information about all devices" << std::endl;
@@ -116,11 +120,22 @@ char userInterface()
 	std::cout << "\t4. Exit" << std::endl;
 	std::cout << ":: ";
 
-	char option;
-	scanf("%c", &option);
+	int option;
+	std::string optionstr;
+	std::getline(std::cin, optionstr);
+	try
+	{
+		std::stringstream(optionstr) >> option;	
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << e.what() << std::endl;
+		return -1;
+	}
+	
+	if(option < 1 || option > 4)
+		option = -1;
 
-	if(option < '1' || option > '4')
-		option = '0';
 	return option;
 }
 
@@ -128,11 +143,11 @@ bool getCommand(rapidjson::Document& jsonCommand)
 {
 	std::cout << "command> ";
 	std::string command;
-	std::cin >> command;
-	std::cout.flush(); // important statement to solve bugs with skipping std::cin>>.
+	std::getline(std::cin, command);
+	std::cout.flush();
 	
 	std::vector<std::string> tokens;
-	split(command, '|', tokens);
+	split(command, ' ', tokens);
 
 	return parseCommand(tokens, jsonCommand);
 }
@@ -282,7 +297,7 @@ void clearScreen()
 
 void pause()
 {
-	char c;
-	std::cout << "Press any key to continue...";
-	std::cin >> c;
+	std::cout << "Press any key to continue..." << std::endl;
+	std::string key;
+	std::getline(std::cin, key);
 }

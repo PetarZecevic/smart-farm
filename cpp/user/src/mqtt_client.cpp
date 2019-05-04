@@ -1,4 +1,5 @@
 #include "mqtt_client.hpp"
+#include <ctime>
 
 MQTT_Client::MQTT_Client(std::string userId, std::string gatewayId, std::string brokerAddress):
     userId_(userId),
@@ -11,6 +12,14 @@ MQTT_Client::MQTT_Client(std::string userId, std::string gatewayId, std::string 
     topics_["command"] = userId_ + "/gateway/" + gatewayId_ + "/command";
     topics_["status"] = topics_["command"] + "/status";
     topics_["response"] = topics_["command"] + "/response";
+    try
+    {
+        logFile_.open("log/mqtt-log.txt", std::ios::openmode::_S_out);
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << std::endl;
+    }
 }
 
 bool MQTT_Client::connectToBroker(mqtt::connect_options coptions)
@@ -21,7 +30,8 @@ bool MQTT_Client::connectToBroker(mqtt::connect_options coptions)
         conntok->wait_for(500);
     }catch(const mqtt::exception& exc)
     {
-        std::cerr << exc.what() << std::endl;
+        std::string logM = exc.what();
+        recordLog(logM);
         return false;
     }
     return true;
@@ -38,7 +48,8 @@ bool MQTT_Client::start()
         }
         catch(const mqtt::exception& exc)
         {
-            std::cerr << exc.what() << std::endl;
+            std::string logM = exc.what();
+            recordLog(logM);
             return false;
         }
         return true;
@@ -64,7 +75,8 @@ bool MQTT_Client::sendCommand(rapidjson::Document& command)
         }
         catch(const mqtt::exception& exc)
         {
-            std::cerr << exc.what() << std::endl;
+            std::string logM = exc.what();
+            recordLog(logM);
             return false;
         }
         return true;
@@ -85,30 +97,56 @@ void MQTT_Client::getAllDevicesInfo(std::unordered_map<std::string, rapidjson::D
     }
 }
 
+void MQTT_Client::recordLog(const std::string& logMessage)
+{
+    if(logFile_.is_open())
+    {
+        time_t now = time(0);
+        tm* ltm = localtime(&now);
+        logFile_ << ltm->tm_hour << ":" << ltm->tm_min << ":" << ltm->tm_sec << " -> ";
+        logFile_ << logMessage << std::endl;
+    }
+}
+
+MQTT_Client::~MQTT_Client()
+{
+    if(logFile_.is_open())
+    {
+        logFile_.close();
+    }
+}
+
+// Private
+
 // Callback
 
 void MQTT_Client::callback::on_failure(const mqtt::token& tok)
 {
-    std::cout << "Connection attempt failed" << std::endl;
+    std::string logM("Connection attempt failed");
+    parent_.recordLog(logM);
 }
 
 void MQTT_Client::callback::connected(const std::string& cause)
 {
-    std::cout << "Connected to MQTT broker" << std::endl; 
+    std::string logM("Connected to MQTT broker");
+    parent_.recordLog(logM); 
 }
 
 void MQTT_Client::callback::connection_lost(const std::string& cause)
 {
-    std::cout << "\nConnection lost" << std::endl;
+    std::string logM("\nConnection lost");
     if (!cause.empty())
-        std::cout << "\tcause: " << cause << std::endl;
+        logM += "\tcause: " + cause;
+    parent_.recordLog(logM);
 }
 
 void MQTT_Client::callback::message_arrived(mqtt::const_message_ptr msg)
 {
     std::string topic = msg->get_topic();
     std::string content = msg->get_payload_str();
-    std::cout << "Message: " << content << std::endl;
+    std::string logM("Message: \n");
+    logM += content;
+    parent_.recordLog(logM);
     /*
         Topics to react:
             - command/response, command/status.

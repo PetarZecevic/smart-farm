@@ -32,7 +32,15 @@
 			"type_traits": "cpp",
 			"typeinfo": "cpp",
 			"utility": "cpp",
-			"cstdarg": "cpp"
+			"cstdarg": "cpp",
+			"array": "cpp",
+			"ctime": "cpp",
+			"unordered_map": "cpp",
+			"vector": "cpp",
+			"fstream": "cpp",
+			"functional": "cpp",
+			"sstream": "cpp",
+			"tuple": "cpp"
 		}
 	}
 }

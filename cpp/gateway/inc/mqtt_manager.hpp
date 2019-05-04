@@ -5,6 +5,7 @@
 #include <iostream>
 #include <unordered_map>
 #include <vector>
+#include <fstream>
 #include <mqtt/async_client.h>
 #include "device.hpp"
 
@@ -21,7 +22,19 @@ public:
     std::string getGatewayId() const {return gateway_id_;};
     std::string getDevicesInfo();
     std::unordered_map<std::string, Device>& getDevices() { return devices_;};
+    /*
+    Close log file if it is opened.
+    */
+    ~MQTT_Manager();
 private:
+
+    /*
+    Write string to file for log informations.
+    Log is defined by template:
+        time -> event
+        time is hour:min:second.
+    */
+    void recordLog(const std::string& logMessage);
     std::string user_id_;
     std::string gateway_id_;
     std::string broker_addr_;
@@ -63,6 +76,7 @@ private:
     };
     callback cb_;
     std::unordered_map<std::string, Device> devices_;
+    std::fstream logFile_;
 };
 
 #endif // MQTT_MANAGER_HPP

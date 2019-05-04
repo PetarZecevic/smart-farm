@@ -2,6 +2,7 @@
 #define MQTT_CLIENT_HPP
 
 #include <unordered_map>
+#include <fstream>
 #include <mqtt/async_client.h>
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
@@ -17,6 +18,8 @@ public:
     mqtt::async_client& getClient() {return mqttClient_;};
     std::vector<rapidjson::Document>& getDevices() { return devices_;};
     std::string getTopic(const char* tag) { return topics_[tag];};
+    void recordLog(const std::string& logMessage);
+    ~MQTT_Client();
 private:
     std::string userId_;
     std::string gatewayId_;
@@ -47,6 +50,7 @@ private:
     callback cb_;
     std::unordered_map<const char*, std::string> topics_;
     std::vector<rapidjson::Document> devices_;
+    std::fstream logFile_;
 };
 
 #endif // MQTT_CLIENT_HPP

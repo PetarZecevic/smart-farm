@@ -17,6 +17,7 @@ public:
 	std::string getLocation() { return gatewayLocation_; };
 	std::string getUSN() { return usn_; };
 private:
+	void static recordLog(const std::string& logMessage);
 	void static log_callback(const char * file, const char * tag, int level, int line, const char * func, const char * message);
 	int static show_interface_list_and_rebind_socket(lssdp_ctx * lssdp);
 	int static show_neighbor_list(lssdp_ctx * lssdp);

@@ -1,0 +1,6 @@
+
+otvori fajlove za logovanje na startu sistemu, pri otkazu ili nekoj gresci,
+zatvori fajlove.
+Fajlovi za logovanje ukljucuju: ssdp-log, mqtt-log i system-log.
+Pre dogadjaja se upisuje vremenski pecat koji sadrzi lokalno vreme.
+To vazi za svaki log fajl.

@@ -3,6 +3,7 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <sstream>
+#include <ctime>
 
 // Manager.
 MQTT_Manager::MQTT_Manager(std::string userId, std::string gatewayId, std::string brokerAddress):
@@ -13,6 +14,11 @@ MQTT_Manager::MQTT_Manager(std::string userId, std::string gatewayId, std::strin
     cb_(mqtt_client_, *this)
 {
     mqtt_client_.set_callback(cb_);
+    try{
+        logFile_.open("log/mqtt-log.txt", std::ios::openmode::_S_out);
+    }catch(std::exception& e){
+        std::cout << "Unable to open mqtt log file." << std::endl;
+    }
 }
 
 bool MQTT_Manager::connectToBroker(mqtt::connect_options coptions)
@@ -23,7 +29,8 @@ bool MQTT_Manager::connectToBroker(mqtt::connect_options coptions)
         conntok->wait_for(500);
     }catch(const mqtt::exception& exc)
     {
-        std::cerr << exc.what() << std::endl;
+        std::string excp = exc.what();
+        recordLog(excp);
         return false;
     }
     return true;
@@ -42,7 +49,8 @@ bool MQTT_Manager::start()
         }
         catch(const mqtt::exception& exc)
         {
-            std::cerr << exc.what() << std::endl;
+            std::string excp = exc.what();
+            recordLog(excp);
             return false;
         }
         return true;
@@ -121,31 +129,56 @@ std::string MQTT_Manager::getDevicesInfo()
     return info;
 }
 
+
+void MQTT_Manager::recordLog(const std::string& logMessage)
+{
+    if(logFile_.is_open())
+    {
+        time_t now = time(0);
+        tm* ltm = localtime(&now);
+        logFile_ << ltm->tm_hour << ":" << ltm->tm_min << ":" << ltm->tm_sec << " -> ";
+        logFile_ << logMessage << std::endl;
+    }
+}
+
+MQTT_Manager::~MQTT_Manager()
+{
+    if(logFile_.is_open())
+    {
+        std::string bye = "MQTT Manager closed";
+        recordLog(bye); 
+        logFile_.close();
+    }
+}
+
 // Callback.
 // Re-connection failure
 void MQTT_Manager::callback::on_failure(const mqtt::token& tok){
-    std::cout << "Connection attempt failed" << std::endl;
+    std::string logM = "Connection attempt failed";
+    manager_.recordLog(logM);
 }
 
 void MQTT_Manager::callback::connected(const std::string& cause){
-	std::cout << "\nConnection success" << std::endl;
+	std::string logM = "Connection success";
+    manager_.recordLog(logM);
 }
 
 void MQTT_Manager::callback::connection_lost(const std::string& cause) 
 {
-    std::cout << "\nConnection lost" << std::endl;
+    std::string logM1 = "Connection lost";
+    manager_.recordLog(logM1);
     if (!cause.empty())
-        std::cout << "\tcause: " << cause << std::endl;
+    {
+        std::string logM2 = "cause: " + cause;
+        manager_.recordLog(logM2); 
+    }
 }
 
 void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
 {
-    std::cout << "Message arrived" << std::endl;
-    std::cout << "\ttopic: '" << msg->get_topic() << "'" << std::endl;
-    std::cout << "\tpayload: '" << msg->to_string() << "'\n" << std::endl;
-    
     std::string topic = msg->get_topic();
     std::string content = msg->to_string();
+
     if(topic == managerLog_)
     {
         rapidjson::Document deviceInfo;
@@ -165,7 +198,8 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
             }
             catch(mqtt::exception& exc)
             {
-                std::cout << exc.what() << std::endl;
+                std::string excp = exc.what();
+                manager_.recordLog(excp);
                 return;
             }
             // Register device into database.
@@ -188,7 +222,10 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
                 if(state.HasParseError())
                    state.Parse("{}"); 
             }
-            manager_.registerDevice(deviceId, deviceInfo, state); 
+            manager_.registerDevice(deviceId, deviceInfo, state);
+            std::string logM("");
+            logM += "Device " + deviceId + " connected."; 
+            manager_.recordLog(logM);
         }
     }
     else
@@ -206,6 +243,9 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
             {
                 // Device disconnected, delete it from devices list.
                 manager_.unregisterDevice(deviceId);
+                std::string logM("");
+                logM += "Device " + deviceId + " disconnected."; 
+                manager_.recordLog(logM);
             }
             else
             {
@@ -220,6 +260,10 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
         }
         else if(method == "command")
         {
+            std::string logM("");
+            logM += "Command from user:\n";
+            logM += content;
+            manager_.recordLog(logM);
             // Parse user command.
             rapidjson::Document command;
             command.Parse(content.c_str());
@@ -236,7 +280,8 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
                 }
                 catch(const mqtt::exception& e)
                 {
-                    std::cerr << e.what() << '\n';
+                    std::string excp = e.what();
+                    manager_.recordLog(excp);
                 }
             }
             else if(type == "SET")
@@ -263,7 +308,8 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
                 }
                 catch(const mqtt::exception& e)
                 {
-                    std::cerr << e.what() << '\n';
+                    std::string excp = e.what();
+                    manager_.recordLog(excp);
                 }
 
                 rapidjson::Document state;
@@ -274,7 +320,8 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
         else
         {
             // error - bad topic.
-            std::cout << "Error in topic" << std::endl;   
+            std::string excp = "Error in topic";
+            manager_.recordLog(excp);
         }
     }
 }

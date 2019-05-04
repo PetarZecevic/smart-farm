@@ -1,5 +1,6 @@
 #include "mqtt_client.hpp"
-#include <cstdio>
+#include <iostream>
+#include <ctime>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
 
@@ -12,6 +13,14 @@ MQTT_Client::MQTT_Client(IPInfo& info):
     userid_ = std::string("");
     gatewayid_ = std::string("");
     reportAllowed_ = false;
+    try
+    {
+        logFile_.open("log/mqtt-log.txt", std::ios::openmode::_S_out);
+    }
+    catch(const std::exception& e)
+    {
+        std::cout << e.what() << std::endl;
+    } 
 }
 
 void MQTT_Client::setLog(std::string ssdpLog)
@@ -72,7 +81,7 @@ bool MQTT_Client::connectToBroker(std::string brokerLocation, int port)
     return true;
 }
 
-bool MQTT_Client::report(ReportFunction* repFunc)
+void MQTT_Client::report(ReportFunction* repFunc)
 {
     while(true)
     {
@@ -85,6 +94,17 @@ bool MQTT_Client::report(ReportFunction* repFunc)
                 break;
         }
         waitFor(2000); // reporting on every 2 seconds.
+    }
+}
+
+void MQTT_Client::recordLog(const std::string& logMessage)
+{
+    if(logFile_.is_open())
+    {
+        time_t now = time(0);
+        tm* ltm = localtime(&now);
+        logFile_ << ltm->tm_hour << ":" << ltm->tm_min << ":" << ltm->tm_sec << " -> ";
+        logFile_ << logMessage << std::endl;
     }
 }
 
@@ -105,10 +125,14 @@ void MQTT_Client::logCallback(MQTT::MessageData& mdata)
 {
     MQTT::Message &message = mdata.message;
     std::string response((char*)message.payload);
-    printf("Response: %s\n", response.c_str());
+    std::string logM("Response: ");
+    logM += response;
+    recordLog(logM);
+    logM.clear();
     if(response == "OK")
     {
-        printf("Log success!\n");
+        logM = "Log success!\n";
+        recordLog(logM);
         // Subsribe to previously defined topics.
         client_.subscribe(topics_["update"].c_str(), MQTT::QOS1, message_handler(this, &MQTT_Client::updateCallback));
         client_.subscribe(topics_["get"].c_str(), MQTT::QOS1, message_handler(this, &MQTT_Client::getCallback));
@@ -117,7 +141,8 @@ void MQTT_Client::logCallback(MQTT::MessageData& mdata)
     }  
     else
     {
-        printf("Log failed!\n");
+        logM = "Log failed!\n";
+        recordLog(logM);
     }
 }
 
@@ -125,16 +150,18 @@ void MQTT_Client::updateCallback(MQTT::MessageData& mdata)
 {
     MQTT::Message& message = mdata.message;
     std::string update((char*)message.payload);
-    printf("Parameters to update:\n");
-    printf("\t%s\n", update.c_str());
+    std::string logM("Parameters to update:\n");
+    logM += update;
+    recordLog(logM);
 }
 
 void MQTT_Client::getCallback(MQTT::MessageData& mdata)
 {
     MQTT::Message& message = mdata.message;
     std::string request((char*)message.payload);
-    printf("Parameters to return:\n");
-    printf("\t%s\n", request.c_str());
+    std::string logM("Parameters to return:\n");
+    logM += request;
+    recordLog(logM);
 }
 
 void MQTT_Client::waitFor(int milliseconds)

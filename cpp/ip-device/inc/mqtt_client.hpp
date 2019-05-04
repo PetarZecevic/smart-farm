@@ -3,6 +3,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <fstream>
 #define MQTTCLIENT_QOS2 1
 #include <memory.h>
 #include "mqtt-embedded/MQTTClient/MQTTClient.h"
@@ -26,9 +27,10 @@ public:
     bool connectToBroker(std::string brokerLocation, int port);
     bool subscribe();
     bool sendInfo();
-    bool report(ReportFunction* repFunc);
+    void report(ReportFunction* repFunc);
     void waitFor(int milliseconds);
     bool isReportAllowed() {return reportAllowed_;};
+    void recordLog(const std::string& logMessage);
 private:
     bool sendReport(rapidjson::Document& state);
     void logCallback(MQTT::MessageData& mdata);
@@ -41,6 +43,7 @@ private:
     std::string gatewayid_;
     std::unordered_map<std::string, std::string> topics_;
     bool reportAllowed_;
+    std::fstream logFile_;
 };
 
 #endif // MQTT_CLIENT_HPP

@@ -36,15 +36,10 @@ int main()
 	info.loadDescFromFile("info.json");
 	info.setState();
 	SSDP_Client c1(info.getByKey("id"), true);
-
-	cout << "JSON : " << info.getDescriptionString() << endl;
-	cout << "JSON : " << info.getDescriptionString() << endl;
-
 	c1.findGateway();	
 
 	// Start MQTT logic.
 	MQTT_Client mqtt_client(info);
-	cout << "Location: " << c1.getLocation() << endl;
 	mqtt_client.setLog(c1.getLogTopic());
 	string loc = c1.getLocation();
 	int pos = loc.find_first_of(':', 0); // Get port number from location.

@@ -1,9 +1,10 @@
 #include "ssdp_client.hpp"
 #include <cstring>
-#include <cstdio>
-#include <errno.h>
+#include <ctime>
+#include <iostream>
+#include <fstream>
+#include <sstream>
 #include <unistd.h>     // select
-#include <sys/time.h>   // gettimeofday
 
 #define SUCCESS 0
 #define WAIT_TIME 1000*1000 // microseconds.
@@ -91,61 +92,99 @@ void SSDP_Client::findGateway()
 }
 
 // Private
+
+void SSDP_Client::recordLog(const std::string& logMessage)
+{
+    static std::fstream logFile;
+    if(logFile.is_open())
+    {
+        time_t now = time(0);
+        tm* ltm = localtime(&now);
+        logFile << ltm->tm_hour << ":" << ltm->tm_min << ":" << ltm->tm_sec << " -> ";
+        logFile << logMessage << std::endl;
+    }
+    else
+    {
+        try
+        {
+            logFile.open("log/ssdp-log.txt", std::ios::openmode::_S_out);
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << '\n';
+        }
+        
+    }
+}
+
 void SSDP_Client::log_callback(const char * file, const char * tag, int level, int line, const char * func, const char * message) 
 {
-	char level_name[6];
-	strcpy(level_name, "DEBUG");
-	if (level == LSSDP_LOG_INFO)   strcpy(level_name, "INFO");
-	if (level == LSSDP_LOG_WARN)   strcpy(level_name, "WARN");
-	if (level == LSSDP_LOG_ERROR)  strcpy(level_name, "ERROR");
+	std::string level_name;
+	level_name = "DEBUG";
+	if (level == LSSDP_LOG_INFO)   level_name = "INFO";
+	if (level == LSSDP_LOG_WARN)   level_name = "WARN";
+	if (level == LSSDP_LOG_ERROR)  level_name = "ERROR";
 	
-	printf("[%-5s][%s] %s", level_name, tag, message);    
+    std::string logM = "";
+    logM += "[" + level_name + "]" + "[" + tag + "]" + " " + message;
+ 	recordLog(logM);    
 }
 
 bool SSDP_Client::rebindSocket()
 {
     bool ret = true;
-    if (lssdp_socket_create(&client_) != SUCCESS) {
-        puts("SSDP create socket failed");
+    if (lssdp_socket_create(&client_) != SUCCESS) 
+    {
+        std::string logM("SSDP create socket failed");
+        recordLog(logM);
         ret = false;
     }
     return ret;
 }
 
 int SSDP_Client::show_interface_list_and_rebind_socket(lssdp_ctx * lssdp) {
-    // 1. show interface list
-    printf("\nNetwork Interface List (%zu):\n", lssdp->interface_num);
+    std::stringstream builder;
+    builder << "\nNetwork Interface List (%zu):\n" << lssdp->interface_num;
+
     size_t i;
     for (i = 0; i < lssdp->interface_num; i++) {
-        printf("%zu. %-6s: %s\n",
-            i + 1,
-            lssdp->interface[i].name,
-            lssdp->interface[i].ip
-        );
+        builder << i+1 << ". ";
+        builder << lssdp->interface[i].name << ": ";
+        builder << lssdp->interface[i].ip << std::endl;
     }
-    printf("%s\n", i == 0 ? "Empty" : "");
+    if(i == 0)
+        builder << "Empty";
+
+    std::string logM = builder.str();
+    recordLog(logM);
     return 0;
 }
 
 int SSDP_Client::show_neighbor_list(lssdp_ctx * lssdp) {
     int i = 0;
     lssdp_nbr * nbr;
-    puts("\nSSDP List:");
+    std::stringstream builder;
+    builder << "\nSSDP List:";
     for (nbr = lssdp->neighbor_list; nbr != NULL; nbr = nbr->next) {
-        printf("%d. id = %-9s\n ip = %-20s\n name = %-12s\n device_type = %-8s\n (%lld)\n",
-            ++i,
-            nbr->sm_id,
-            nbr->location,
-            nbr->usn,
-            nbr->device_type,
-            nbr->update_time
-        );
+        builder << ++i << ". ";
+        builder << "id = " << nbr->sm_id << ", ";
+        builder << "ip = " << nbr->location << ", ";
+        builder << "name = " << nbr->device_type << ", ";
+        builder << "device_type = " << nbr->device_type << " ";
+        builder << "(" << nbr->update_time << ")" << std::endl;
     }
+    if(i == 0)
+        builder << "Empty";
+
+    std::string logM = builder.str();
+    recordLog(logM);
     return 0;
 }
 
 int SSDP_Client::show_ssdp_packet(struct lssdp_ctx * lssdp, const char * packet, std::size_t packet_len) {
-    printf("Packet received\n %s", packet);
+    std::string logM = "Packet received\n";
+    logM += packet;
+    recordLog(logM);
     return 0;
 }
 
