@@ -1,12 +1,17 @@
 cpp/ip-device/obj/*.o
 cpp/ip-device/src/main
 cpp/ip-device/src/log/*.txt
+cpp/ip-device/src/.vscode
+cpp/ip-device/inc/.vscode
 
 cpp/gateway/obj/*.o
 cpp/gateway/src/main
 cpp/gateway/src/log/*.txt
+cpp/gateway/src/.vscode
+cpp/gateway/inc/.vscode
 
 cpp/user/obj/*.o
 cpp/user/src/main
 cpp/user/src/log/*.txt
-
+cpp/user/src/.vscode
+cpp/user/inc/.vscode
