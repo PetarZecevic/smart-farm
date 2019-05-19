@@ -5,17 +5,17 @@
 #include <rapidjson/stringbuffer.h>
 
 // Public
-MQTT_Client::MQTT_Client(IPInfo& info):
+MQTT_Client::MQTT_Client(const IPInfo& info, std::string logFileName):
     ipstack_(),
-    client_(ipstack_)
+    client_(ipstack_),
+    ipinfo_(info),
+    userid_(""),
+    gatewayid_(""),
+    reportAllowed_(false)
 {
-    ipinfo_.copy(info),
-    userid_ = std::string("");
-    gatewayid_ = std::string("");
-    reportAllowed_ = false;
     try
     {
-        logFile_.open("log/mqtt-log.txt", std::ios::openmode::_S_out);
+        logFile_.open("log/" + logFileName, std::ios::openmode::_S_out);
     }
     catch(const std::exception& e)
     {
@@ -153,6 +153,39 @@ void MQTT_Client::updateCallback(MQTT::MessageData& mdata)
     std::string logM("Parameters to update:\n");
     logM += update;
     recordLog(logM);
+
+    std::string m((char*)mdata.message.payload);
+    rapidjson::Document newState;
+    newState.Parse(m.c_str());
+    if(!newState.HasParseError())
+    {
+        rapidjson::Document& state = ipinfo_.getStateDOM();
+        static std::string kTypeNames[] = { "Null", "False", "True", "Object", "Array", "String", "Number" };
+        rapidjson::Document::AllocatorType& allocator = state.GetAllocator();
+        for (rapidjson::Value::ConstMemberIterator itr = newState.MemberBegin(); itr != newState.MemberEnd(); ++itr)
+        {
+            if(state.HasMember(itr->name.GetString()))
+            {
+                rapidjson::Value& v = state[itr->name.GetString()];
+                if(kTypeNames[itr->value.GetType()] == "String")
+                {
+                    v.SetString(itr->value.GetString(), allocator);
+                }
+                else if(kTypeNames[itr->value.GetType()] == "Number")
+                {
+                    // Support int and double.
+                    if(itr->value.IsInt())
+                    {
+                        v.SetInt(itr->value.GetInt());
+                    }
+                    else if(itr->value.IsDouble())
+                    {
+                        v.SetDouble(itr->value.GetDouble());
+                    }
+                }
+            }
+        }
+    }
 }
 
 void MQTT_Client::getCallback(MQTT::MessageData& mdata)
@@ -184,11 +217,18 @@ bool MQTT_Client::sendInfo()
     // Send device information to gateway.
     std::string builder = "";
     builder += ipinfo_.getDescriptionString();
-    
+    std::cout << builder << std::endl;
+    std::cout << "length: " << builder.length() << std::endl;
     int rc = client_.publish(topics_["gatewaylog"].c_str(), (void*)builder.c_str(), builder.length(), MQTT::QOS2);
-    
+
     if(rc != MQTT::returnCode::SUCCESS)
         return false;
     else
         return true;
+}
+
+MQTT_Client::~MQTT_Client(){
+    if(logFile_.is_open()){
+        logFile_.close();
+    }
 }

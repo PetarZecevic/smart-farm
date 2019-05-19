@@ -10,16 +10,19 @@
 #include "ssdp_client.hpp"
 #include "mqtt_client.hpp"
 
-std::unordered_map<std::string, rapidjson::Document> gDevices;
+std::unordered_map<std::string, rapidjson::Document> gDevicesInfo;
+std::unordered_map<std::string, rapidjson::Document> gDevicesState;
 
 void parseBrokerLocation(std::string location, std::string& ip, std::string& port);
 void parseGatewayId(std::string topic, std::string& gatewayId);
 int userInterface();
 bool parseCommand(std::vector<std::string>& tokens, rapidjson::Document& jsonCommand);
 bool getCommand(rapidjson::Document& jsonCommand);
-std::string commandTemplate();
+std::string commandSetTemplate();
+std::string commandGetTemplate();
 void split(const std::string& s, char delimiter, std::vector<std::string>& tokens);
-void printDevices();
+void printDevicesInfo();
+void printDevicesState();
 void clearScreen();
 void pause();
 
@@ -55,20 +58,19 @@ int main(int argc, char** argv)
 			while(!finished)
 			{
 				rapidjson::Document command;
-				std::string commandTemp = commandTemplate();
-				command.Parse(commandTemp.c_str());
 				int option = userInterface();
 				if(option != -1)
 				{
 					switch(option)
 					{
 						case 1:
-							command["command_type"].SetString("ALL");
-							mqttCli.sendCommand(command);
+							mqttCli.getAllDevicesState(gDevicesState);
+							printDevicesState();
+							pause();
 							break;
 						case 2:
-							mqttCli.getAllDevicesInfo(gDevices);
-							printDevices();
+							mqttCli.getAllDevicesInfo(gDevicesInfo);
+							printDevicesInfo();
 							pause();
 							break;
 						case 3:
@@ -114,8 +116,8 @@ void parseGatewayId(std::string topic, std::string& gatewayId)
 int userInterface()
 {
 	std::cout << "Options: " << std::endl;
-	std::cout << "\t1. Request information about all devices" << std::endl;
-	std::cout << "\t2. Show all available devices" << std::endl;
+	std::cout << "\t1. Show devices state" << std::endl;
+	std::cout << "\t2. Show devices desprition" << std::endl;
 	std::cout << "\t3. Send command" << std::endl;
 	std::cout << "\t4. Exit" << std::endl;
 	std::cout << ":: ";
@@ -154,13 +156,16 @@ bool getCommand(rapidjson::Document& jsonCommand)
 
 bool parseCommand(std::vector<std::string>& tokens, rapidjson::Document& jsonCommand)
 {
-	bool success = true;
+	bool success = false;
 	// For now implement set command.
 	if(!tokens.empty())
 	{
 		std::string opcode = tokens[0];
 		if(opcode == "SET")
-		{
+		{	
+
+			std::string commandTemp = commandSetTemplate();
+			jsonCommand.Parse(commandTemp.c_str());
 			jsonCommand["command_type"].SetString("SET");
 			// SET device_id.param value
 			if(tokens.size() == 3)
@@ -173,8 +178,8 @@ bool parseCommand(std::vector<std::string>& tokens, rapidjson::Document& jsonCom
 					std::string id = parameterTokens[0];
 					std::string param = parameterTokens[1];
 
-					auto it = gDevices.find(id);
-					if(it != gDevices.end())
+					auto it = gDevicesInfo.find(id);
+					if(it != gDevicesInfo.end())
 					{
 						// Found device.
 						bool found = false;
@@ -200,43 +205,88 @@ bool parseCommand(std::vector<std::string>& tokens, rapidjson::Document& jsonCom
 						if(!found)
 						{
 							std::cout << "ERROR: Parameter " << param << " not found." << std::endl;
-							success = false;
 						}
+						else
+						{
+							success = true;	
+						}
+						
 					}
 					else
 					{
 						std::cout << "ERROR: Device " << id << " not found." << std::endl;
-						success = false;
 					}					
 				}
 				else
 				{
-					std::cout << "ERROR: Expected deviceId.paramName expression, " << tokens[1]  << " given." << std::endl;	
-					success = false;
+					std::cout << "ERROR: Expected deviceId.paramName expression, " << tokens[1]  << " given." << std::endl;
 				}
 			}
 			else
 			{
 				std::cout << "ERROR: 2 params expected, " << tokens.size()-1 << " given." << std::endl;
-				success = false;
 			}
+		}
+		else if(opcode == "GET")
+		{
+			std::string commandTemp = commandGetTemplate();
+			jsonCommand.Parse(commandTemp.c_str());
+			jsonCommand["command_type"].SetString("GET");
+			if(tokens.size() == 2)
+			{
+				// possible commands with this opcode.
+				// GET *.info
+				// GET *.state
+				// GET id.state
+				// GET id.info
+				std::vector<std::string> parameterTokens;
+				split(tokens[1], '.', parameterTokens);
+				if(parameterTokens.size() == 2)
+				{
+					std::string id = parameterTokens[0];
+					std::string json = parameterTokens[1];
+					if(id == "*" || (gDevicesInfo.find(id) != gDevicesInfo.end()))
+					{
+						jsonCommand["device"].SetString(id.c_str(), jsonCommand.GetAllocator());
+						if(json == "info" || json == "state")
+						{
+							jsonCommand["json"].SetString(json.c_str(), jsonCommand.GetAllocator());
+							success = true;
+						}
+						else
+						{
+							std::cout << "ERROR: Wrong json type!" << std::endl;
+						}	
+					}
+					else
+					{
+						std::cout << "ERROR: Wrong id!" << std::endl;
+					}
+				}
+				else
+				{
+					std::cout << "ERROR: Wrong syntax for params!" << std::endl;
+				}
+			}
+			else
+			{
+				std::cout << "ERROR: Not enough params!" << std::endl;
+			}		
 		}
 		else
 		{
 			std::cout << "ERROR: Method not valid!" << std::endl;
-			success = false;
 		}
 	}
 	else
 	{
 		std::cout << "ERROR: Empty input." << std::endl;
-		success = false;
 	}
 		
 	return success;
 }
 
-std::string commandTemplate()
+std::string commandSetTemplate()
 {
 	rapidjson::StringBuffer s;
 	rapidjson::Writer<rapidjson::StringBuffer> writer(s);
@@ -250,6 +300,17 @@ std::string commandTemplate()
 	return std::string(s.GetString());
 }
 
+std::string commandGetTemplate()
+{
+	rapidjson::StringBuffer s;
+	rapidjson::Writer<rapidjson::StringBuffer> writer(s);
+	writer.StartObject();
+	writer.Key("command_type"); writer.Null();
+	writer.Key("json"); writer.Null();
+	writer.Key("device"); writer.Null();
+	writer.EndObject();
+	return std::string(s.GetString());
+}
 
 void split(const std::string& s, char delimiter, std::vector<std::string>& tokens)
 {
@@ -261,11 +322,40 @@ void split(const std::string& s, char delimiter, std::vector<std::string>& token
     }
 }
 
-void printDevices()
+void printDevicesInfo()
 {
 	// Print devices by their groups.
 	std::unordered_map<const char*, std::string> groups;
-	for(auto it = gDevices.begin(); it != gDevices.end(); it++)
+	for(auto it = gDevicesInfo.begin(); it != gDevicesInfo.end(); it++)
+	{
+		auto fit = groups.find(it->second["group"].GetString());
+		if(fit == groups.end())
+		{
+			// Init group.
+			groups[it->second["group"].GetString()] = "";
+		}
+		// Group initialized already.
+		rapidjson::StringBuffer s;
+		rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(s);
+		it->second.Accept(writer);
+		
+		groups[it->second["group"].GetString()] += s.GetString();
+		groups[it->second["group"].GetString()] += "\n";
+	}
+
+	for(auto it = groups.begin(); it != groups.end(); it++)
+	{
+		std::cout << it->first << " -> " << std::endl;
+		std::cout << it->second << std::endl;
+		std::cout << "------------------------------" << std::endl;
+	}
+}
+
+void printDevicesState()
+{
+	// Print devices by their groups.
+	std::unordered_map<const char*, std::string> groups;
+	for(auto it = gDevicesState.begin(); it != gDevicesState.end(); it++)
 	{
 		auto fit = groups.find(it->second["group"].GetString());
 		if(fit == groups.end())

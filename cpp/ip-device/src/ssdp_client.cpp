@@ -23,6 +23,8 @@ SSDP_Client::SSDP_Client(std::string usn, bool debug)
 	client_.network_interface_changed_callback = this->show_interface_list_and_rebind_socket;
 	client_.neighbor_list_changed_callback = this->show_neighbor_list;
 	client_.packet_received_callback = this->show_ssdp_packet;
+    client_.neighbor_list = NULL;
+    
     // Remember usn.
     this->usn_ = usn;
 }
@@ -91,9 +93,8 @@ void SSDP_Client::findGateway()
 	return;
 }
 
-// Private
-
-void SSDP_Client::recordLog(const std::string& logMessage)
+/*
+void recordLog(const std::string& logMessage)
 {
     static std::fstream logFile;
     if(logFile.is_open())
@@ -107,15 +108,18 @@ void SSDP_Client::recordLog(const std::string& logMessage)
     {
         try
         {
-            logFile.open("log/ssdp-log.txt", std::ios::openmode::_S_out);
+            logFile.open("log/" + logFileName_, std::ios::openmode::_S_out);
         }
         catch(const std::exception& e)
         {
-            std::cerr << e.what() << '\n';
-        }
-        
+            std::cout << e.what() << std::endl;
+        } 
     }
+    
 }
+*/
+
+// Private
 
 void SSDP_Client::log_callback(const char * file, const char * tag, int level, int line, const char * func, const char * message) 
 {
@@ -125,9 +129,9 @@ void SSDP_Client::log_callback(const char * file, const char * tag, int level, i
 	if (level == LSSDP_LOG_WARN)   level_name = "WARN";
 	if (level == LSSDP_LOG_ERROR)  level_name = "ERROR";
 	
-    std::string logM = "";
-    logM += "[" + level_name + "]" + "[" + tag + "]" + " " + message;
- 	recordLog(logM);    
+    //std::string logM = "";
+    //logM += "[" + level_name + "]" + "[" + tag + "]" + " " + message;
+ 	//recordLog(logM);    
 }
 
 bool SSDP_Client::rebindSocket()
@@ -136,7 +140,7 @@ bool SSDP_Client::rebindSocket()
     if (lssdp_socket_create(&client_) != SUCCESS) 
     {
         std::string logM("SSDP create socket failed");
-        recordLog(logM);
+        //recordLog(logM);
         ret = false;
     }
     return ret;
@@ -155,8 +159,8 @@ int SSDP_Client::show_interface_list_and_rebind_socket(lssdp_ctx * lssdp) {
     if(i == 0)
         builder << "Empty";
 
-    std::string logM = builder.str();
-    recordLog(logM);
+    //std::string logM = builder.str();
+    //recordLog(logM);
     return 0;
 }
 
@@ -176,15 +180,15 @@ int SSDP_Client::show_neighbor_list(lssdp_ctx * lssdp) {
     if(i == 0)
         builder << "Empty";
 
-    std::string logM = builder.str();
-    recordLog(logM);
+    //std::string logM = builder.str();
+    //recordLog(logM);
     return 0;
 }
 
 int SSDP_Client::show_ssdp_packet(struct lssdp_ctx * lssdp, const char * packet, std::size_t packet_len) {
     std::string logM = "Packet received\n";
     logM += packet;
-    recordLog(logM);
+    //recordLog(logM);
     return 0;
 }
 

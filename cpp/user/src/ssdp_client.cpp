@@ -143,12 +143,14 @@ bool SSDP_Client::rebindSocket()
     return ret;
 }
 
-int SSDP_Client::show_interface_list_and_rebind_socket(lssdp_ctx * lssdp) {
+int SSDP_Client::show_interface_list_and_rebind_socket(lssdp_ctx * lssdp) 
+{
     std::stringstream builder;
     builder << "\nNetwork Interface List (%zu):\n" << lssdp->interface_num;
 
     size_t i;
-    for (i = 0; i < lssdp->interface_num; i++) {
+    for (i = 0; i < lssdp->interface_num; i++) 
+    {
         builder << i+1 << ". ";
         builder << lssdp->interface[i].name << ": ";
         builder << lssdp->interface[i].ip << std::endl;
@@ -161,12 +163,14 @@ int SSDP_Client::show_interface_list_and_rebind_socket(lssdp_ctx * lssdp) {
     return 0;
 }
 
-int SSDP_Client::show_neighbor_list(lssdp_ctx * lssdp) {
+int SSDP_Client::show_neighbor_list(lssdp_ctx * lssdp) 
+{
     int i = 0;
     lssdp_nbr * nbr;
     std::stringstream builder;
     builder << "\nSSDP List:";
-    for (nbr = lssdp->neighbor_list; nbr != NULL; nbr = nbr->next) {
+    for (nbr = lssdp->neighbor_list; nbr != NULL; nbr = nbr->next) 
+    {
         builder << ++i << ". ";
         builder << "id = " << nbr->sm_id << ", ";
         builder << "ip = " << nbr->location << ", ";
@@ -182,7 +186,8 @@ int SSDP_Client::show_neighbor_list(lssdp_ctx * lssdp) {
     return 0;
 }
 
-int SSDP_Client::show_ssdp_packet(struct lssdp_ctx * lssdp, const char * packet, std::size_t packet_len) {
+int SSDP_Client::show_ssdp_packet(struct lssdp_ctx * lssdp, const char * packet, std::size_t packet_len)
+{
     std::string logM = "Packet received\n";
     logM += packet;
     recordLog(logM);

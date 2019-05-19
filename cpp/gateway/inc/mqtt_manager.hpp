@@ -20,8 +20,13 @@ public:
     void mergeDeviceState(std::string id, const rapidjson::Document& state);
     std::string getUserId() const {return user_id_;};
     std::string getGatewayId() const {return gateway_id_;};
-    std::string getDevicesInfo();
-    std::unordered_map<std::string, Device>& getDevices() { return devices_;};
+    std::string getAllInfo();
+    std::string getAllState();
+    std::string getOneInfo(std::string id);
+    std::string getOneState(std::string id);
+    // std::string getDeviceState(std::string deviceId);
+    // std::string getDeviceInfo(std::string deviceId);
+    //std::unordered_map<std::string, Device>& getDevices() { return devices_;};
     /*
     Close log file if it is opened.
     */

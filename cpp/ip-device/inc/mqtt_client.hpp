@@ -22,7 +22,7 @@ class MQTT_Client
 {
 public:
     using message_handler = FP<void, MQTT::MessageData&>;
-    MQTT_Client(IPInfo& info);
+    MQTT_Client(const IPInfo& info, std::string logFileName);
     void setLog(std::string ssdpLog);
     bool connectToBroker(std::string brokerLocation, int port);
     bool subscribe();
@@ -31,19 +31,20 @@ public:
     void waitFor(int milliseconds);
     bool isReportAllowed() {return reportAllowed_;};
     void recordLog(const std::string& logMessage);
+    ~MQTT_Client();
 private:
     bool sendReport(rapidjson::Document& state);
     void logCallback(MQTT::MessageData& mdata);
     void getCallback(MQTT::MessageData& mdata);
     void updateCallback(MQTT::MessageData& mdata);
-    IPInfo ipinfo_;
     IPStack ipstack_;
-    MQTT::Client<IPStack, Countdown> client_;
+    MQTT::Client<IPStack, Countdown, 1000, 5> client_;
+    IPInfo ipinfo_;
     std::string userid_;
     std::string gatewayid_;
-    std::unordered_map<std::string, std::string> topics_;
     bool reportAllowed_;
     std::fstream logFile_;
+    std::unordered_map<std::string, std::string> topics_;
 };
 
 #endif // MQTT_CLIENT_HPP

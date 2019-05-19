@@ -15,8 +15,10 @@ public:
     bool start();
     bool sendCommand(rapidjson::Document& command);
     void getAllDevicesInfo(std::unordered_map<std::string, rapidjson::Document>& devs);
+    void getAllDevicesState(std::unordered_map<std::string, rapidjson::Document>& devs);
     mqtt::async_client& getClient() {return mqttClient_;};
-    std::vector<rapidjson::Document>& getDevices() { return devices_;};
+    std::vector<rapidjson::Document>& getInfoDevices() { return devicesInfo_;};
+    std::vector<rapidjson::Document>& getStateDevices() { return devicesState_;};
     std::string getTopic(const char* tag) { return topics_[tag];};
     void recordLog(const std::string& logMessage);
     ~MQTT_Client();
@@ -49,7 +51,8 @@ private:
     };
     callback cb_;
     std::unordered_map<const char*, std::string> topics_;
-    std::vector<rapidjson::Document> devices_;
+    std::vector<rapidjson::Document> devicesInfo_;
+    std::vector<rapidjson::Document> devicesState_;
     std::fstream logFile_;
 };
 

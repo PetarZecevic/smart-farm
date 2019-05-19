@@ -11,7 +11,8 @@ MQTT_Client::MQTT_Client(std::string userId, std::string gatewayId, std::string 
     mqttClient_.set_callback(cb_);
     topics_["command"] = userId_ + "/gateway/" + gatewayId_ + "/command";
     topics_["status"] = topics_["command"] + "/status";
-    topics_["response"] = topics_["command"] + "/response";
+    topics_["response-info"] = topics_["command"] + "/response/info";
+    topics_["response-state"] = topics_["command"] + "/response/state";
     try
     {
         logFile_.open("log/mqtt-log.txt", std::ios::openmode::_S_out);
@@ -44,7 +45,8 @@ bool MQTT_Client::start()
         try
         {
             mqttClient_.subscribe(topics_["status"], 1);
-            mqttClient_.subscribe(topics_["response"], 1);
+            mqttClient_.subscribe(topics_["response-info"], 1);
+            mqttClient_.subscribe(topics_["response-state"], 1);
         }
         catch(const mqtt::exception& exc)
         {
@@ -88,11 +90,23 @@ bool MQTT_Client::sendCommand(rapidjson::Document& command)
 void MQTT_Client::getAllDevicesInfo(std::unordered_map<std::string, rapidjson::Document>& devs)
 {
     devs.clear();
-    for(size_t i = 0; i < devices_.size(); i++)
+    for(size_t i = 0; i < devicesInfo_.size(); i++)
     {
-        if(devices_[i].IsObject())
+        if(devicesInfo_[i].IsObject())
         {
-            devs[devices_[i]["id"].GetString()].CopyFrom(devices_[i], devices_[i].GetAllocator());
+            devs[devicesInfo_[i]["id"].GetString()].CopyFrom(devicesInfo_[i], devicesInfo_[i].GetAllocator());
+        }
+    }
+}
+
+void MQTT_Client::getAllDevicesState(std::unordered_map<std::string, rapidjson::Document>& devs)
+{
+    devs.clear();
+    for(size_t i = 0; i < devicesState_.size(); i++)
+    {
+        if(devicesState_[i].IsObject())
+        {
+            devs[devicesState_[i]["id"].GetString()].CopyFrom(devicesState_[i], devicesState_[i].GetAllocator());
         }
     }
 }
@@ -147,28 +161,43 @@ void MQTT_Client::callback::message_arrived(mqtt::const_message_ptr msg)
     std::string logM("Message: \n");
     logM += content;
     parent_.recordLog(logM);
-    /*
-        Topics to react:
-            - command/response, command/status.
-    */
-    if(topic == parent_.getTopic("response"))
+    
+    if(topic == parent_.getTopic("response-info"))
     {
-        // Go through json and store all devices into map.
         rapidjson::Document devs;
         devs.Parse(content.c_str());
         if(!devs.HasParseError())
         {
-            rapidjson::Value arr = devs["devices"].GetArray();
-            parent_.devices_.clear();
+            rapidjson::Value arr = devs["info"].GetArray();
+            parent_.devicesInfo_.clear();
             if(!arr.Empty())
             {
-                parent_.devices_.resize(arr.Size()); 
+                parent_.devicesInfo_.resize(arr.Size()); 
                 for (rapidjson::SizeType i = 0; i < arr.Size(); i++)
                 {
                     rapidjson::Value device = arr[i].GetObject();
-                    parent_.devices_[i].CopyFrom(device, parent_.devices_[i].GetAllocator());       
+                    parent_.devicesInfo_[i].CopyFrom(device, parent_.devicesInfo_[i].GetAllocator());       
                 }
             }
         }
     }
-}
+    else if(topic == parent_.getTopic("response-state"))
+    {
+        rapidjson::Document devs;
+        devs.Parse(content.c_str());
+        if(!devs.HasParseError())
+        {
+            rapidjson::Value arr = devs["state"].GetArray();
+            parent_.devicesState_.clear();
+            if(!arr.Empty())
+            {
+                parent_.devicesState_.resize(arr.Size()); 
+                for (rapidjson::SizeType i = 0; i < arr.Size(); i++)
+                {
+                    rapidjson::Value device = arr[i].GetObject();
+                    parent_.devicesState_[i].CopyFrom(device, parent_.devicesState_[i].GetAllocator());       
+                }
+            }
+        }
+    }
+}   

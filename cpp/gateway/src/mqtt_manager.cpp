@@ -105,11 +105,11 @@ void MQTT_Manager::mergeDeviceState(std::string id, const rapidjson::Document& s
     }
 }
 
-std::string MQTT_Manager::getDevicesInfo()
+std::string MQTT_Manager::getAllInfo()
 {
     std::string info = "";
     info += "{"; // begin object.
-    info += "\"devices\":["; // start array.
+    info += "\"info\":["; // start array.
     
     auto it = devices_.begin();
     if(it != devices_.end())
@@ -129,6 +129,72 @@ std::string MQTT_Manager::getDevicesInfo()
     return info;
 }
 
+std::string MQTT_Manager::getAllState()
+{
+    std::string state = "";
+    state += "{"; // begin object.
+    state += "\"state\":["; // start array.
+    
+    auto it = devices_.begin();
+    if(it != devices_.end())
+    {
+        state += it->second.getState();
+        ++it;
+        for(;it != devices_.end(); ++it)
+        {
+            state += ',';
+            state += it->second.getState();
+        }
+    }
+
+    state += "]"; // end array.
+    state += "}"; // end object.
+
+    return state;
+}
+
+
+std::string MQTT_Manager::getOneInfo(std::string id)
+{
+    std::string info = "";
+    info += "{"; // begin object.
+    info += "\"info\":";
+    info += "[";
+    auto it = devices_.find(id);
+    if(it != devices_.end())
+    {
+        info += it->second.getInfo();
+    }
+    else
+    {
+        info += "{}";
+    }
+    
+    info += "]"; // end array.
+    info += "}"; // end object.
+    return info;
+}
+
+std::string MQTT_Manager::getOneState(std::string id)
+{
+    std::string state = "";
+    state += "{"; // begin object.
+    state += "\"state\":";
+    state += "["; // start array.
+    auto it = devices_.find(id);
+    if(it != devices_.end())
+    {
+        state += it->second.getState();
+    }
+    else
+    {
+        state += "{}";
+    }
+    
+    state += "]"; // end array.
+    state += "}"; // end object.
+    return state;
+}
 
 void MQTT_Manager::recordLog(const std::string& logMessage)
 {
@@ -212,6 +278,10 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
                 rapidjson::StringBuffer s;
                 rapidjson::Writer<rapidjson::StringBuffer> writer(s);
                 writer.StartObject();
+                writer.Key("id");
+                writer.String(deviceId.c_str(), deviceId.length(), true);
+                writer.Key("group");
+                writer.String(deviceGroup.c_str(), deviceGroup.length(), true);
                 for(rapidjson::SizeType i = 0; i < params.Size(); i++)
                 {
                     writer.Key(params[i].GetString());
@@ -268,20 +338,42 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
             rapidjson::Document command;
             command.Parse(content.c_str());
             std::string type = command["command_type"].GetString();
-            if(type == "ALL")
+
+            if(type == "GET")
             {
-                try
+                std::string json = command["json"].GetString();
+                std::string device = command["device"].GetString();
+                std::string message = "";
+                if(json == "info")
                 {
-                    // Send information about all devices.
-                    topic += "/response";
-                    mqtt::message_ptr pubm = mqtt::make_message(topic, manager_.getDevicesInfo().c_str());
-                    pubm->set_qos(1);
-                    cli_.publish(pubm);
+                    topic += "/response/info"; 
+                    if(device == "*")
+                        message = manager_.getAllInfo();
+                    else
+                        message = manager_.getOneInfo(device);
                 }
-                catch(const mqtt::exception& e)
+                else if(json == "state")
                 {
-                    std::string excp = e.what();
-                    manager_.recordLog(excp);
+                    topic += "/response/state";
+                    if(device == "*")
+                        message = manager_.getAllState();
+                    else
+                        message = manager_.getOneState(device);
+                }
+
+                if(!message.empty())
+                {
+                    try
+                    {
+                        mqtt::message_ptr pubm = mqtt::make_message(topic, message.c_str());
+                        pubm->set_qos(1);
+                        cli_.publish(pubm);
+                    }
+                    catch(const mqtt::exception& e)
+                    {
+                        std::string excp = e.what();
+                        manager_.recordLog(excp);
+                    }
                 }
             }
             else if(type == "SET")

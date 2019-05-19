@@ -1,25 +1,19 @@
 #include "ipinfo.hpp"
-#include <iostream>
-#include <cstring>
-#include <cstdlib>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
+#include <rapidjson/filereadstream.h>
+#include <cstdio>
 
-void IPInfo::copy(IPInfo& rhs)
+IPInfo::IPInfo()
 {
-    description_.Swap(rhs.getDescriptionDOM());
-    state_.Swap(rhs.getStateDOM());
-    strDesc_ = rhs.strDesc_;
+    description_.Parse("{}");
+    state_.Parse("{}");
 }
 
-bool IPInfo::setDescription(std::string desc)
+IPInfo::IPInfo(const IPInfo& rhs)
 {
-    bool ret = true;
-    description_.Parse(desc);
-    ret = description_.HasParseError();
-    if(!ret)
-        strDesc_ = desc;
-    return !ret;
+    description_.CopyFrom(rhs.description_, description_.GetAllocator());
+    state_.CopyFrom(rhs.state_, state_.GetAllocator());
 }
 
 bool IPInfo::setState()
@@ -34,7 +28,7 @@ bool IPInfo::setState()
         for(rapidjson::SizeType i = 0; i < params.Size(); i++)
         {
             writer.Key(params[i].GetString());
-            writer.Int(0);
+            writer.Null();
         }
         writer.EndObject();
         state_.Parse(s.GetString());
@@ -50,33 +44,33 @@ bool IPInfo::setState()
         return false;
 }
 
-bool IPInfo::loadDescFromFile(std::string filepath)
-{
-    std::basic_string<char> f_desc = "{\"id\":\"ip_device_1\",\"group\":\"sensors\",\"parameters\":[\"temperature\"]}";
-    return setDescription(f_desc);
-}
-
 bool IPInfo::loadDescFromFile(const char* filepath)
 {
-    std::string f_desc = "{\"id\":\"ip_device_1\",\"group\":\"sensors\",\"parameters\":[\"temperature\"]}";
-    return setDescription(f_desc);
+    FILE* fp = fopen(filepath, "r");
+    if(fp != NULL)
+    {
+        char readBuffer[65536];
+        rapidjson::FileReadStream is(fp, readBuffer, sizeof(readBuffer));
+        description_.ParseStream(is);
+        return !description_.HasParseError();
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool IPInfo::loadDescFromFile(const std::string filepath)
+{
+    return loadDescFromFile(filepath.c_str());
 }
 
 std::string IPInfo::getDescriptionString()
 {
-    return strDesc_;
-}
-
-std::string IPInfo::getByKey(const std::string key)
-{
-    if(description_.IsObject())
-    {
-        if(description_.HasMember(key.c_str()) && description_[key.c_str()].IsString())
-        {
-            return description_[key.c_str()].GetString();
-        }
-    }
-    return std::string("");
+    rapidjson::StringBuffer s;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(s);
+    description_.Accept(writer);
+    return std::string(s.GetString());
 }
 
 std::string IPInfo::getByKey(const char* key)
@@ -89,4 +83,9 @@ std::string IPInfo::getByKey(const char* key)
         }
     }
     return std::string("");
+}
+
+std::string IPInfo::getByKey(const std::string key)
+{
+    return getByKey(key.c_str());
 }

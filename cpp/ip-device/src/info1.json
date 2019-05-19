@@ -1,0 +1,5 @@
+{
+	"id" : "ip_device_1",
+	"group" : "sensors",
+	"parameters" : ["temperature"]
+}
