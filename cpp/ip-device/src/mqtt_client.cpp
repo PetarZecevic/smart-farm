@@ -165,27 +165,32 @@ void MQTT_Client::updateCallback(MQTT::MessageData& mdata)
         rapidjson::Document::AllocatorType& allocator = state.GetAllocator();
         for (rapidjson::Value::ConstMemberIterator itr = newState.MemberBegin(); itr != newState.MemberEnd(); ++itr)
         {
-        	//TODO: Modify this to support services so that we have loop for each service.
-            if(state.HasMember(itr->name.GetString()))
+            rapidjson::Value& params = newState[itr->name.GetString()];
+            if(params.IsObject())
             {
-                rapidjson::Value& v = state[itr->name.GetString()];
-                if(kTypeNames[itr->value.GetType()] == "String")
+                for(rapidjson::Value::MemberIterator pit = params.MemberBegin(); pit != params.MemberEnd(); pit++)
                 {
-                    v.SetString(itr->value.GetString(), allocator);
-                }
-                else if(kTypeNames[itr->value.GetType()] == "Number")
-                {
-                    // Support int and double.
-                    if(itr->value.IsInt())
+                    rapidjson::Value& v = state[pit->name.GetString()];
+                    if(kTypeNames[pit->value.GetType()] == "String")
                     {
-                        v.SetInt(itr->value.GetInt());
+                        v.SetString(pit->value.GetString(), allocator);
                     }
-                    else if(itr->value.IsDouble())
+                    else if(kTypeNames[pit->value.GetType()] == "Number")
                     {
-                        v.SetDouble(itr->value.GetDouble());
+                        // Support int and double.
+                        if(itr->value.IsInt())
+                        {
+                            v.SetInt(pit->value.GetInt());
+                        }
+                        else if(pit->value.IsDouble())
+                        {
+                            v.SetDouble(pit->value.GetDouble());
+                        }
                     }
                 }
             }
+            else
+                break;
         }
     }
 }
