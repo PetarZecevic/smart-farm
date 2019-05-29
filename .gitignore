@@ -1,17 +1,17 @@
-cpp/ip-device/obj/*.o
+cpp/ip-device/obj/*
+cpp/ip-device/log/*
 cpp/ip-device/src/main
-cpp/ip-device/src/log/*.txt
-cpp/ip-device/src/.vscode
-cpp/ip-device/inc/.vscode
+cpp/ip-device/src/.vscode/ipch
+cpp/ip-device/inc/.vscode/ipch
 
-cpp/gateway/obj/*.o
+cpp/gateway/obj/*
 cpp/gateway/src/main
-cpp/gateway/src/log/*.txt
-cpp/gateway/src/.vscode
-cpp/gateway/inc/.vscode
+cpp/gateway/src/log/*
+cpp/gateway/src/.vscode/ipch
+cpp/gateway/inc/.vscode/ipch
 
-cpp/user/obj/*.o
+cpp/user/obj/*
 cpp/user/src/main
-cpp/user/src/log/*.txt
-cpp/user/src/.vscode
-cpp/user/inc/.vscode
+cpp/user/src/log/*
+cpp/user/src/.vscode/ipch
+cpp/user/inc/.vscode/ipch

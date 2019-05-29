@@ -1,5 +1,0 @@
-{
-	"id" : "actuator1",
-	"group" : "actuator",
-	"parameters" : ["motor_speed", "motor_state"]
-}

@@ -1,5 +1,15 @@
 {
 	"id" : "ip_device_1",
 	"group" : "sensors",
-	"parameters" : ["temperature"]
+	"ContactService" : 
+	{
+		"State" : "T/F"
+	},
+	"LightService" :
+	{
+		"DimLevel" : "0~100",
+		"State" : "ON/OFF",
+		"ColorType" : "RGB/HS",
+		"ColorKelvin" : "0~300"
+	}
 }

@@ -46,6 +46,7 @@ bool SSDP_Client::checkMessages()
     	ret = lssdp_socket_read(&client_);
         if(ret == SUCCESS)
         {
+        	// TODO: Check if neighbour list is empty before setting topics.
             lssdp_nbr* neighbor = client_.neighbor_list;
             gatewayLogTopic_ = std::string(neighbor->sm_id);
             gatewayLocation_ = std::string(neighbor->location);
@@ -75,6 +76,8 @@ void SSDP_Client::findGateway()
 	// Trying to find iot controler's.
 	while(true)
 	{
+		// TODO: Add number count for number of tries, so that after that count
+		// device go to sleep on predefined number of seconds.
 		if(searchControler())
 		{
 			usleep(WAIT_TIME);
@@ -188,6 +191,7 @@ int SSDP_Client::show_neighbor_list(lssdp_ctx * lssdp) {
 int SSDP_Client::show_ssdp_packet(struct lssdp_ctx * lssdp, const char * packet, std::size_t packet_len) {
     std::string logM = "Packet received\n";
     logM += packet;
+    std::cout << logM << std::endl;
     //recordLog(logM);
     return 0;
 }

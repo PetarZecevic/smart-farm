@@ -1,5 +1,12 @@
 {
-	"id" : "ip_device_2",
+	"id" : "weather_sensor",
 	"group" : "sensors",
-	"parameters" : ["humidity", "pressure"]
+	"TempService" :
+	{
+		"Temperature" : "-50~50|r"
+	},
+	"HumidityService" :
+	{
+		"Humidity" : "900~1100|r"
+	}
 }

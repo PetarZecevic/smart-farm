@@ -93,6 +93,7 @@ void MQTT_Client::report(ReportFunction* repFunc)
             if(!sendReport(diffState))
                 break;
         }
+        //TODO: Set number of seconds to be field of MQTTClient class.
         waitFor(2000); // reporting on every 2 seconds.
     }
 }
@@ -164,6 +165,7 @@ void MQTT_Client::updateCallback(MQTT::MessageData& mdata)
         rapidjson::Document::AllocatorType& allocator = state.GetAllocator();
         for (rapidjson::Value::ConstMemberIterator itr = newState.MemberBegin(); itr != newState.MemberEnd(); ++itr)
         {
+        	//TODO: Modify this to support services so that we have loop for each service.
             if(state.HasMember(itr->name.GetString()))
             {
                 rapidjson::Value& v = state[itr->name.GetString()];
@@ -217,8 +219,8 @@ bool MQTT_Client::sendInfo()
     // Send device information to gateway.
     std::string builder = "";
     builder += ipinfo_.getDescriptionString();
-    std::cout << builder << std::endl;
-    std::cout << "length: " << builder.length() << std::endl;
+    //std::cout << builder << std::endl;
+    //std::cout << "length: " << builder.length() << std::endl;
     int rc = client_.publish(topics_["gatewaylog"].c_str(), (void*)builder.c_str(), builder.length(), MQTT::QOS2);
 
     if(rc != MQTT::returnCode::SUCCESS)

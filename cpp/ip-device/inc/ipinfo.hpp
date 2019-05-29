@@ -46,6 +46,7 @@ public:
     rapidjson::Document& getDescriptionDOM() { return description_;}
     rapidjson::Document& getStateDOM() { return state_;}
     std::string getDescriptionString();
+    std::string getStateString();
     std::string getByKey(const char* key);
     std::string getByKey(const std::string key);
 private:

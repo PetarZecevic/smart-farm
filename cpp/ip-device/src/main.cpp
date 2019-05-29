@@ -8,6 +8,10 @@
 
 using namespace std;
 
+//TODO: 1. Add virtual destructor to ReportFunction
+//TODO: 2. Modify parameters and return value so it does not depend on JSON,
+// report function only needs to make a measurement of all the parameters and
+// return it as some structure where service is binded to it's parameters.
 class MyReport : public ReportFunction
 {
 public:
@@ -40,7 +44,7 @@ int main(int argc, char** argv)
 	}
 	else if(argc != 3)
 	{
-		cout << "Enter name of log file" << endl;
+		cout << "Enter name of mqtt log file" << endl;
 		return -1;
 	}
 	else
@@ -54,6 +58,9 @@ int main(int argc, char** argv)
 		else
 			return -1;
 
+		std::cout << info.getStateString() << std::endl;
+
+		/*
 		SSDP_Client c1(info.getByKey("id"), true);
 		c1.findGateway();	
 
@@ -87,7 +94,8 @@ int main(int argc, char** argv)
 					delete myReport;
 				}
 			}
-		}	
+		}
+		*/	
 	}
 	return 0;
 }

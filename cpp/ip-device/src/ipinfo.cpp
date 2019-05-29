@@ -19,29 +19,38 @@ IPInfo::IPInfo(const IPInfo& rhs)
 bool IPInfo::setState()
 {
     state_.Parse("{}");
-    const rapidjson::Value& params = description_["parameters"];
-    if(params.IsArray())
-    {
-        rapidjson::StringBuffer s;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(s);
-        writer.StartObject();
-        for(rapidjson::SizeType i = 0; i < params.Size(); i++)
+    // First two fields are id and group.
+    rapidjson::Value::MemberIterator it = description_.MemberBegin();
+    it += 2;
+    rapidjson::StringBuffer s;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(s);
+    writer.StartObject();
+    for(; it != description_.MemberEnd(); it++){
+        // Store parameters for each service.
+        writer.Key(it->name.GetString()); // Service.
+        rapidjson::Value& params = description_[it->name.GetString()];
+        if(params.IsObject())
         {
-            writer.Key(params[i].GetString());
-            writer.Null();
-        }
-        writer.EndObject();
-        state_.Parse(s.GetString());
-        if(state_.HasParseError())
-        {
-            state_.Parse("{}");
-            return false;
+            writer.StartObject();
+            for(rapidjson::Value::MemberIterator pit = params.MemberBegin(); pit != params.MemberEnd(); pit++)
+            {
+                writer.Key(pit->name.GetString()); // Parameter.
+                writer.Null();
+            }
+            writer.EndObject();
         }
         else
-            return true;
+            return false;
+    }
+    writer.EndObject();
+    state_.Parse(s.GetString());
+    if(state_.HasParseError())
+    {
+        state_.Parse("{}");
+        return false;
     }
     else
-        return false;
+        return true;
 }
 
 bool IPInfo::loadDescFromFile(const char* filepath)
@@ -70,6 +79,14 @@ std::string IPInfo::getDescriptionString()
     rapidjson::StringBuffer s;
     rapidjson::Writer<rapidjson::StringBuffer> writer(s);
     description_.Accept(writer);
+    return std::string(s.GetString());
+}
+
+std::string IPInfo::getStateString()
+{
+    rapidjson::StringBuffer s;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(s);
+    state_.Accept(writer);
     return std::string(s.GetString());
 }
 
