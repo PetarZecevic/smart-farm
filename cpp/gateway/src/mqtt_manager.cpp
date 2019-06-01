@@ -77,29 +77,42 @@ void MQTT_Manager::mergeDeviceState(std::string id, const rapidjson::Document& s
     auto it = devices_.find(id);
     if(it != devices_.end())
     {
-        Device& d = devices_.at(id);
-        rapidjson::Document::AllocatorType& allocator = d.state.GetAllocator();
+        Device& device = devices_.at(id);
+        rapidjson::Document::AllocatorType& allocator = device.state.GetAllocator();
+        // Go through services.
         for (rapidjson::Value::ConstMemberIterator itr = state.MemberBegin(); itr != state.MemberEnd(); ++itr)
         {
-            if(d.state.HasMember(itr->name.GetString()))
+            //TODO: Add one more for loop to support services.
+            if(device.state.HasMember(itr->name.GetString()))
             {
-                rapidjson::Value& v = d.state[itr->name.GetString()];
-                if(kTypeNames[itr->value.GetType()] == "String")
+                const rapidjson::Value& params = state[itr->name.GetString()];
+                if(params.IsObject())
                 {
-                    v.SetString(itr->value.GetString(), allocator);
-                }
-                else if(kTypeNames[itr->value.GetType()] == "Number")
-                {
-                    // Support int and double.
-                    if(itr->value.IsInt())
+                    // Go through params for each service.
+                    for(rapidjson::Value::ConstMemberIterator pit = params.MemberBegin(); pit != params.MemberEnd(); ++pit)
                     {
-                        v.SetInt(itr->value.GetInt());
-                    }
-                    else if(itr->value.IsDouble())
-                    {
-                        v.SetDouble(itr->value.GetDouble());
+                        // Update params values.
+                        rapidjson::Value& v = device.state[itr->name.GetString()];
+                        if(kTypeNames[itr->value.GetType()] == "String")
+                        {
+                            v.SetString(itr->value.GetString(), allocator);
+                        }
+                        else if(kTypeNames[itr->value.GetType()] == "Number")
+                        {
+                            // Support int and double.
+                            if(itr->value.IsInt())
+                            {
+                                v.SetInt(itr->value.GetInt());
+                            }
+                            else if(itr->value.IsDouble())
+                            {
+                                v.SetDouble(itr->value.GetDouble());
+                            }
+                        }
                     }
                 }
+                else
+                    break;
             }
         }
     }
@@ -268,34 +281,24 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
                 manager_.recordLog(excp);
                 return;
             }
-            // Register device into database.
-            // Parse devices state.
+            
+            // TODO: Move conversion from description to state in static method of class Device.
             rapidjson::Document state;
-            state.Parse("{}");
-            const rapidjson::Value& params = deviceInfo["parameters"];
-            if(params.IsArray())
-            {
-                rapidjson::StringBuffer s;
-                rapidjson::Writer<rapidjson::StringBuffer> writer(s);
-                writer.StartObject();
-                writer.Key("id");
-                writer.String(deviceId.c_str(), deviceId.length(), true);
-                writer.Key("group");
-                writer.String(deviceGroup.c_str(), deviceGroup.length(), true);
-                for(rapidjson::SizeType i = 0; i < params.Size(); i++)
-                {
-                    writer.Key(params[i].GetString());
-                    writer.Null();
-                }
-                writer.EndObject();
-                state.Parse(s.GetString());
-                if(state.HasParseError())
-                   state.Parse("{}"); 
-            }
-            manager_.registerDevice(deviceId, deviceInfo, state);
             std::string logM("");
-            logM += "Device " + deviceId + " connected."; 
-            manager_.recordLog(logM);
+            if(Device::setStateFromDescription(state, deviceInfo))
+            {
+                // Successfully configured state from description.
+                // Register device into internal database.
+                manager_.registerDevice(deviceId, deviceInfo, state);
+                logM += "Device " + deviceId + " connected."; 
+                manager_.recordLog(logM);
+            }
+            else
+            {
+                // Error in description.
+                logM += "Device " + deviceId + " state configuring failed.";
+                manager_.recordLog(logM);
+            }
         }
     }
     else
@@ -383,9 +386,13 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
                 rapidjson::StringBuffer s;
                 rapidjson::Writer<rapidjson::StringBuffer> writer(s);
                 
+                // TODO: Extract service from command also.
+                writer.StartObject();
+                writer.Key(command["service"].GetString());
                 writer.StartObject();
                 writer.Key(command["parameter"].GetString());
                 writer.String(command["value"].GetString());
+                writer.EndObject();
                 writer.EndObject();
 
                 // Send command to device.

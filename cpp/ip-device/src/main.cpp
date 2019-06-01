@@ -60,7 +60,7 @@ int main(int argc, char** argv)
 
 		std::cout << info.getStateString() << std::endl;
 
-		/*
+		
 		SSDP_Client c1(info.getByKey("id"), true);
 		c1.findGateway();	
 
@@ -95,7 +95,6 @@ int main(int argc, char** argv)
 				}
 			}
 		}
-		*/	
 	}
 	return 0;
 }

@@ -166,6 +166,7 @@ void MQTT_Client::updateCallback(MQTT::MessageData& mdata)
         for (rapidjson::Value::ConstMemberIterator itr = newState.MemberBegin(); itr != newState.MemberEnd(); ++itr)
         {
             rapidjson::Value& params = newState[itr->name.GetString()];
+            //TODO: Check if state has service from newState.
             if(params.IsObject())
             {
                 for(rapidjson::Value::MemberIterator pit = params.MemberBegin(); pit != params.MemberEnd(); pit++)

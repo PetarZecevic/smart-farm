@@ -44,7 +44,7 @@ private:
     std::string gateway_id_;
     std::string broker_addr_;
     mqtt::async_client mqtt_client_;
-        /**
+    /**
      * Local callback class for use with the client connection.
      * This is primarily intended to receive messages.
      */
