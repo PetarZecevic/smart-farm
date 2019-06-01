@@ -171,7 +171,7 @@ void MQTT_Client::updateCallback(MQTT::MessageData& mdata)
             {
                 for(rapidjson::Value::MemberIterator pit = params.MemberBegin(); pit != params.MemberEnd(); pit++)
                 {
-                    rapidjson::Value& v = state[pit->name.GetString()];
+                    rapidjson::Value& v = state[itr->name.GetString()][pit->name.GetString()];
                     if(kTypeNames[pit->value.GetType()] == "String")
                     {
                         v.SetString(pit->value.GetString(), allocator);
@@ -179,7 +179,7 @@ void MQTT_Client::updateCallback(MQTT::MessageData& mdata)
                     else if(kTypeNames[pit->value.GetType()] == "Number")
                     {
                         // Support int and double.
-                        if(itr->value.IsInt())
+                        if(pit->value.IsInt())
                         {
                             v.SetInt(pit->value.GetInt());
                         }

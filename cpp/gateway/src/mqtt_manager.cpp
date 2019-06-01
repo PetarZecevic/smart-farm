@@ -92,21 +92,21 @@ void MQTT_Manager::mergeDeviceState(std::string id, const rapidjson::Document& s
                     for(rapidjson::Value::ConstMemberIterator pit = params.MemberBegin(); pit != params.MemberEnd(); ++pit)
                     {
                         // Update params values.
-                        rapidjson::Value& v = device.state[itr->name.GetString()];
-                        if(kTypeNames[itr->value.GetType()] == "String")
+                        rapidjson::Value& v = device.state[itr->name.GetString()][pit->name.GetString()];
+                        if(kTypeNames[pit->value.GetType()] == "String")
                         {
-                            v.SetString(itr->value.GetString(), allocator);
+                            v.SetString(pit->value.GetString(), allocator);
                         }
-                        else if(kTypeNames[itr->value.GetType()] == "Number")
+                        else if(kTypeNames[pit->value.GetType()] == "Number")
                         {
                             // Support int and double.
-                            if(itr->value.IsInt())
+                            if(pit->value.IsInt())
                             {
-                                v.SetInt(itr->value.GetInt());
+                                v.SetInt(pit->value.GetInt());
                             }
-                            else if(itr->value.IsDouble())
+                            else if(pit->value.IsDouble())
                             {
-                                v.SetDouble(itr->value.GetDouble());
+                                v.SetDouble(pit->value.GetDouble());
                             }
                         }
                     }

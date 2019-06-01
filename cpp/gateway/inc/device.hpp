@@ -37,12 +37,19 @@ public:
     static bool setStateFromDescription(rapidjson::Document& state_, rapidjson::Document& desc_)
     {
         state_.Parse("{}");
-        // First two fields are id and group.
-        rapidjson::Value::MemberIterator it = desc_.MemberBegin();
-        it += 2;
         rapidjson::StringBuffer s;
         rapidjson::Writer<rapidjson::StringBuffer> writer(s);
+
+        // First two fields are id and group.
         writer.StartObject();
+        writer.Key("id");
+        writer.String(desc_["id"].GetString());
+        
+        writer.Key("group");
+        writer.String(desc_["group"].GetString());
+
+        rapidjson::Value::MemberIterator it = desc_.MemberBegin();
+        it += 2;
         for(; it != desc_.MemberEnd(); it++){
             // Store parameters for each service.
             writer.Key(it->name.GetString()); // Service.

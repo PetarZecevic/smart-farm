@@ -9,9 +9,12 @@
 #include <rapidjson/prettywriter.h>
 #include "ssdp_client.hpp"
 #include "mqtt_client.hpp"
+#include "parameter.hpp"
 
 std::unordered_map<std::string, rapidjson::Document> gDevicesInfo;
 std::unordered_map<std::string, rapidjson::Document> gDevicesState;
+// id|service_name|parameter_name -> parameter class, map is used as cache for commands.
+std::unordered_map<std::string, Parameter*> gParametersInfo;
 
 void parseBrokerLocation(std::string location, std::string& ip, std::string& port);
 void parseGatewayId(std::string topic, std::string& gatewayId);
@@ -25,6 +28,7 @@ void printDevicesInfo();
 void printDevicesState();
 void clearScreen();
 void pause();
+void setParamInfo();
 
 int main(int argc, char** argv)
 {
@@ -70,6 +74,7 @@ int main(int argc, char** argv)
 							break;
 						case 2:
 							mqttCli.getAllDevicesInfo(gDevicesInfo);
+							// TODO: Clear cache.
 							printDevicesInfo();
 							pause();
 							break;
@@ -172,45 +177,123 @@ bool parseCommand(std::vector<std::string>& tokens, rapidjson::Document& jsonCom
 			{
 				std::vector<std::string> parameterTokens;
 				split(tokens[1], '.', parameterTokens);
-				if(parameterTokens.size() == 2)
+				if(parameterTokens.size() == 3)
 				{
-					// device_id.param
+					// device_id.service.param
 					std::string id = parameterTokens[0];
-					std::string param = parameterTokens[1];
+					std::string service = parameterTokens[1];
+					std::string param = parameterTokens[2];
+					std::string value = tokens[2];
+					std::string key = id + "|" + service + "|" + param; // Key for cache.
 
 					auto it = gDevicesInfo.find(id);
 					if(it != gDevicesInfo.end())
 					{
 						// Found device.
-						bool found = false;
-						rapidjson::Value paramArray = it->second["parameters"].GetArray();
-						for(rapidjson::SizeType i = 0; i < paramArray.Size(); i++)
+						if(gDevicesInfo[id].HasMember(service.c_str()))
 						{
-							if(paramArray[i].IsString())
+							if(gDevicesInfo[id][service.c_str()].HasMember(param.c_str()))
 							{
-								std::string tmp(paramArray[i].GetString());
-								if(tmp == param)
+								// Found parameter.
+								// Check if value for parameter is valid.
+								auto pit = gParametersInfo.find(key);
+								if(pit != gParametersInfo.end())
 								{
-									// Found parameter.
-									found = true;
-									// Check matching between value and param type.
-									jsonCommand["group"].SetString(it->second["group"].GetString(), jsonCommand.GetAllocator());
-									jsonCommand["device"].SetString(id.c_str(), jsonCommand.GetAllocator());
-									jsonCommand["parameter"].SetString(param.c_str(), jsonCommand.GetAllocator());
-									jsonCommand["value"].SetString(tokens[2].c_str(), jsonCommand.GetAllocator());
-						
+									// Hit success.
+									if(gParametersInfo[key]->isValueAllowed(value))
+									{
+										success = true;
+										jsonCommand["group"].SetString(it->second["group"].GetString(), jsonCommand.GetAllocator());
+										jsonCommand["device"].SetString(id.c_str(), jsonCommand.GetAllocator());
+										jsonCommand["service"].SetString(service.c_str(), jsonCommand.GetAllocator());
+										jsonCommand["parameter"].SetString(param.c_str(), jsonCommand.GetAllocator());
+										jsonCommand["value"].SetString(value.c_str(), jsonCommand.GetAllocator());
+									}
+									else
+									{
+										std::cout << "ERROR: Bad Parameter value." << std::endl;
+									}
 								}
+								else
+								{
+									// Hit failed, parse param info, and store it in cache.
+									bool writeAllowed;
+
+									std::string paramInfo(gDevicesInfo[id][service.c_str()][param.c_str()].GetString());
+									std::vector<std::string> tok;
+									split(paramInfo, '|', tok);
+									if(tok.size() == 1)
+									{
+										writeAllowed = true;
+									}
+									else if(tok[1] == "r")
+									{
+										writeAllowed = false;
+
+									}
+
+									std::string values = tok[0];
+									tok.clear();
+									split(values, '/', tok);
+									if(tok.size() == 1)
+									{
+										tok.clear();
+										split(values, '~', tok);
+										gParametersInfo[key] = new RangeParameter(std::stoi(tok[0]), std::stoi(tok[1]), writeAllowed);
+										if(!writeAllowed)
+										{
+											std::cout << "ERROR: Read-only parameter." << std::endl; 
+										}
+										else if(gParametersInfo[key]->isValueAllowed(value))
+										{
+											success = true;
+											jsonCommand["group"].SetString(it->second["group"].GetString(), jsonCommand.GetAllocator());
+											jsonCommand["device"].SetString(id.c_str(), jsonCommand.GetAllocator());
+											jsonCommand["service"].SetString(service.c_str(), jsonCommand.GetAllocator());
+											jsonCommand["parameter"].SetString(param.c_str(), jsonCommand.GetAllocator());
+											jsonCommand["value"].SetString(value.c_str(), jsonCommand.GetAllocator());
+										}
+										else
+										{
+											std::cout << "ERROR: Parameter value " << value << " not in range " << values << std::endl;
+										}
+										
+									}
+									else
+									{
+										gParametersInfo[key] = new ListParameter(tok, writeAllowed);
+										if(!writeAllowed)
+										{
+											std::cout << "ERROR: Read-only parameter." << std::endl; 
+										}
+										else if(gParametersInfo[key]->isValueAllowed(value))
+										{
+											success = true;
+											jsonCommand["group"].SetString(it->second["group"].GetString(), jsonCommand.GetAllocator());
+											jsonCommand["device"].SetString(id.c_str(), jsonCommand.GetAllocator());
+											jsonCommand["service"].SetString(service.c_str(), jsonCommand.GetAllocator());
+											jsonCommand["parameter"].SetString(param.c_str(), jsonCommand.GetAllocator());
+											jsonCommand["value"].SetString(value.c_str(), jsonCommand.GetAllocator());
+										}
+										else
+										{
+											std::cout << "ERROR: Parameter value " << value << " not in list " << values << std::endl;
+										}
+										
+									}
+									
+								}
+						
 							}
-						}	
-						if(!found)
-						{
-							std::cout << "ERROR: Parameter " << param << " not found." << std::endl;
+							else
+							{
+								std::cout << "ERROR: Parameter " << param << " not found." << std::endl;	
+							}						
 						}
 						else
 						{
-							success = true;	
+							std::cout << "ERROR: Service " << service << " not found." << std::endl;
 						}
-						
 					}
 					else
 					{
@@ -294,6 +377,7 @@ std::string commandSetTemplate()
 	writer.Key("command_type"); writer.Null();
 	writer.Key("group"); writer.Null();
 	writer.Key("device"); writer.Null();
+	writer.Key("service"); writer.Null();
 	writer.Key("parameter"); writer.Null();
 	writer.Key("value"); writer.Null();
 	writer.EndObject();
