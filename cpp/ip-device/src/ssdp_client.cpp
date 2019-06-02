@@ -46,10 +46,16 @@ bool SSDP_Client::checkMessages()
     	ret = lssdp_socket_read(&client_);
         if(ret == SUCCESS)
         {
-        	// TODO: Check if neighbour list is empty before setting topics.
             lssdp_nbr* neighbor = client_.neighbor_list;
-            gatewayLogTopic_ = std::string(neighbor->sm_id);
-            gatewayLocation_ = std::string(neighbor->location);
+            if(neighbor != NULL)
+            {
+            	gatewayLogTopic_ = std::string(neighbor->sm_id);
+            	gatewayLocation_ = std::string(neighbor->location);	
+            }
+            else
+            {
+            	ret = -1;
+            }
         }
     }
     else
