@@ -26,6 +26,7 @@ std::string commandGetTemplate();
 void split(const std::string& s, char delimiter, std::vector<std::string>& tokens);
 void printDevicesInfo();
 void printDevicesState();
+void printDevices(std::unordered_map<std::string, rapidjson::Document>& devs);
 void clearScreen();
 void pause();
 void setParamInfo();
@@ -408,52 +409,34 @@ void split(const std::string& s, char delimiter, std::vector<std::string>& token
 
 void printDevicesInfo()
 {
-	// Print devices by their groups.
-	std::unordered_map<const char*, std::string> groups;
-	for(auto it = gDevicesInfo.begin(); it != gDevicesInfo.end(); it++)
-	{
-		auto fit = groups.find(it->second["group"].GetString());
-		if(fit == groups.end())
-		{
-			// Init group.
-			groups[it->second["group"].GetString()] = "";
-		}
-		// Group initialized already.
-		rapidjson::StringBuffer s;
-		rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(s);
-		it->second.Accept(writer);
-		
-		groups[it->second["group"].GetString()] += s.GetString();
-		groups[it->second["group"].GetString()] += "\n";
-	}
-
-	for(auto it = groups.begin(); it != groups.end(); it++)
-	{
-		std::cout << it->first << " -> " << std::endl;
-		std::cout << it->second << std::endl;
-		std::cout << "------------------------------" << std::endl;
-	}
+	printDevices(gDevicesInfo);
 }
 
 void printDevicesState()
 {
+	printDevices(gDevicesState);
+}
+
+void printDevices(std::unordered_map<std::string, rapidjson::Document>& devs)
+{
 	// Print devices by their groups.
-	std::unordered_map<const char*, std::string> groups;
-	for(auto it = gDevicesState.begin(); it != gDevicesState.end(); it++)
+	std::unordered_map<std::string, std::string> groups;
+	for(auto it = devs.begin(); it != devs.end(); it++)
 	{
-		auto fit = groups.find(it->second["group"].GetString());
+		std::string group(it->second["group"].GetString());
+		auto fit = groups.find(group);
 		if(fit == groups.end())
 		{
 			// Init group.
-			groups[it->second["group"].GetString()] = "";
+			groups[group] = "";
 		}
 		// Group initialized already.
 		rapidjson::StringBuffer s;
 		rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(s);
 		it->second.Accept(writer);
 		
-		groups[it->second["group"].GetString()] += s.GetString();
-		groups[it->second["group"].GetString()] += "\n";
+		groups[group] += s.GetString();
+		groups[group] += "\n";
 	}
 
 	for(auto it = groups.begin(); it != groups.end(); it++)
