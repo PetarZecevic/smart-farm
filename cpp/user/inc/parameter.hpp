@@ -2,7 +2,6 @@
 #define PARAMETER_HPP
 
 #include <string>
-#include <sstream>
 #include <vector>
 
 enum class ValuesType{RANGE, LIST};
@@ -38,18 +37,18 @@ public:
 
     bool isValueAllowed(std::string value) override
     {
-        std::stringstream convertor(value);
         int numValue;
-        convertor >> numValue;
-        if(!convertor.good())
+        try{
+            numValue = std::stoi(value);
+        }catch(std::exception& e){
+            // Conversion error.
+            return false;
+        }
+
+        if(numValue < minimumValue || numValue > maximumValue)
             return false;
         else
-        {
-            if(numValue < minimumValue || numValue > maximumValue)
-                return false;
-            else
-                return true;
-        }
+            return true;
     }
 };
 

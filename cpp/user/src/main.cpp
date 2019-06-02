@@ -240,7 +240,9 @@ bool parseCommand(std::vector<std::string>& tokens, rapidjson::Document& jsonCom
 									{
 										tok.clear();
 										split(values, '~', tok);
-										gParametersInfo[key] = new RangeParameter(std::stoi(tok[0]), std::stoi(tok[1]), writeAllowed);
+										int minimum = std::stoi(tok[0]);
+										int maximum = std::stoi(tok[1]);
+										gParametersInfo[key] = new RangeParameter(minimum, maximum, writeAllowed);
 										if(!writeAllowed)
 										{
 											std::cout << "ERROR: Read-only parameter." << std::endl; 
