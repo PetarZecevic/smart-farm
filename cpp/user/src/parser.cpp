@@ -47,11 +47,15 @@ bool Parser::parseCommand(std::string command, rapidjson::Document& jsonCommand,
         {
             tokens.pop_front();
             success = methodSet(tokens, errorMessage);
+            if(success)
+                jsonCommand.CopyFrom(templateSet_, templateGet_.GetAllocator());
         }
         else if(tokens.front() == "GET")
         {
             tokens.pop_front();
             success = methodGet(tokens, errorMessage);
+            if(success)
+                jsonCommand.CopyFrom(templateGet_, templateGet_.GetAllocator());
         }
         else
             errorMessage = "Command type not recognized";
