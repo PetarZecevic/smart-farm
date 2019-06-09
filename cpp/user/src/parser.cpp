@@ -14,26 +14,28 @@ Parser::Parser(std::unordered_map<std::string, rapidjson::Document>& dInfo,
             // Configure command templates.
             templateSet_.Parse("{}");
             templateGet_.Parse("{}");
-            rapidjson::StringBuffer s;
-            rapidjson::Writer<rapidjson::StringBuffer> writer(s);
+            rapidjson::StringBuffer s1;
+            rapidjson::Writer<rapidjson::StringBuffer> writer1(s1);
             // Set.
-            writer.StartObject();
-            writer.Key("command_type"); writer.Null();
-	        writer.Key("group"); writer.Null();
-	        writer.Key("device"); writer.Null();
-	        writer.Key("service"); writer.Null();
-	        writer.Key("parameter"); writer.Null();
-	        writer.Key("value"); writer.Null();
-            writer.EndObject();
-            templateSet_.Parse(s.GetString());
-            writer.Reset(s);
+            writer1.StartObject();
+            writer1.Key("command_type"); writer1.String("SET");
+	        writer1.Key("group"); writer1.Null();
+	        writer1.Key("device"); writer1.Null();
+	        writer1.Key("service"); writer1.Null();
+	        writer1.Key("parameter"); writer1.Null();
+	        writer1.Key("value"); writer1.Null();
+            writer1.EndObject();
+            templateSet_.Parse(s1.GetString());
+            
+            rapidjson::StringBuffer s2;
+            rapidjson::Writer<rapidjson::StringBuffer> writer2(s2);
             // Get.
-            writer.StartObject();
-            writer.Key("command_type"); writer.Null();
-	        writer.Key("json"); writer.Null();
-	        writer.Key("device"); writer.Null();
-            writer.EndObject();
-            templateGet_.Parse(s.GetString());
+            writer2.StartObject();
+            writer2.Key("command_type"); writer2.String("GET");
+	        writer2.Key("json"); writer2.Null();
+	        writer2.Key("device"); writer2.Null();
+            writer2.EndObject();
+            templateGet_.Parse(s2.GetString());
 }
 
 bool Parser::parseCommand(std::string command, rapidjson::Document& jsonCommand, std::string& errorMessage)
