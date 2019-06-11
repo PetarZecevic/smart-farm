@@ -74,6 +74,45 @@ bool IPInfo::loadDescFromFile(const std::string filepath)
     return loadDescFromFile(filepath.c_str());
 }
 
+bool IPInfo::mergeState(rapidjson::Document& newState)
+{
+    // Types of all possible values from JSON document.
+    static std::string kTypeNames[] = { "Null", "False", "True", "Object", "Array", "String", "Number" };
+    rapidjson::Document::AllocatorType& allocator = state_.GetAllocator();
+    // Iterate through all services.
+    for (rapidjson::Value::ConstMemberIterator itr = newState.MemberBegin(); itr != newState.MemberEnd(); ++itr)
+    {
+        rapidjson::Value& params = newState[itr->name.GetString()];
+        if(params.IsObject())
+        {
+            // Iterate through service parameters.
+            for(rapidjson::Value::MemberIterator pit = params.MemberBegin(); pit != params.MemberEnd(); pit++)
+            {
+                rapidjson::Value& v = state_[itr->name.GetString()][pit->name.GetString()];
+                if(kTypeNames[pit->value.GetType()] == "String")
+                {
+                    v.SetString(pit->value.GetString(), allocator);
+                }
+                else if(kTypeNames[pit->value.GetType()] == "Number")
+                {
+                    // Support int and double.
+                    if(pit->value.IsInt())
+                    {
+                        v.SetInt(pit->value.GetInt());
+                    }
+                    else if(pit->value.IsDouble())
+                    {
+                        v.SetDouble(pit->value.GetDouble());
+                    }
+                }
+            }
+        }
+        else
+            return false;
+    }
+    return true;
+}
+
 std::string IPInfo::getDescriptionString()
 {
     rapidjson::StringBuffer s;

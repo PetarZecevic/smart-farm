@@ -1,6 +1,7 @@
 cpp/ip-device/obj/*
 cpp/ip-device/log/*
 cpp/ip-device/src/main
+cpp/ip-device/src/bulb
 cpp/ip-device/src/.vscode/ipch
 cpp/ip-device/inc/.vscode/ipch
 

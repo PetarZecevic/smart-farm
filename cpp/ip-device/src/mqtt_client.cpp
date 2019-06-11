@@ -160,39 +160,14 @@ void MQTT_Client::updateCallback(MQTT::MessageData& mdata)
     newState.Parse(m.c_str());
     if(!newState.HasParseError())
     {
-        rapidjson::Document& state = ipinfo_.getStateDOM();
-        static std::string kTypeNames[] = { "Null", "False", "True", "Object", "Array", "String", "Number" };
-        rapidjson::Document::AllocatorType& allocator = state.GetAllocator();
-        for (rapidjson::Value::ConstMemberIterator itr = newState.MemberBegin(); itr != newState.MemberEnd(); ++itr)
+        if(ipinfo_.mergeState(newState))
         {
-            rapidjson::Value& params = newState[itr->name.GetString()];
-            //TODO: Check if state has service from newState.
-            if(params.IsObject())
-            {
-                for(rapidjson::Value::MemberIterator pit = params.MemberBegin(); pit != params.MemberEnd(); pit++)
-                {
-                    rapidjson::Value& v = state[itr->name.GetString()][pit->name.GetString()];
-                    if(kTypeNames[pit->value.GetType()] == "String")
-                    {
-                        v.SetString(pit->value.GetString(), allocator);
-                    }
-                    else if(kTypeNames[pit->value.GetType()] == "Number")
-                    {
-                        // Support int and double.
-                        if(pit->value.IsInt())
-                        {
-                            v.SetInt(pit->value.GetInt());
-                        }
-                        else if(pit->value.IsDouble())
-                        {
-                            v.SetDouble(pit->value.GetDouble());
-                        }
-                    }
-                }
-            }
-            else
-                break;
+            // Call update function callback.
+            ;
         }
+        else
+            // Failed to merge state.
+            return;
     }
 }
 
@@ -222,7 +197,6 @@ bool MQTT_Client::subscribe()
 
 bool MQTT_Client::sendInfo()
 {
-    // Send device information to gateway.
     std::string builder = "";
     builder += ipinfo_.getDescriptionString();
     //std::cout << builder << std::endl;

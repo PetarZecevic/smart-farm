@@ -42,7 +42,11 @@ public:
      * Overloaded for version for cpp string.
      */
     bool loadDescFromFile(const std::string filepath);
-    
+    /**
+     * Merge parameter values from @param newState with current state.
+     * Method assumes that @param newState is correctly formed based on JSON state structure.
+     */
+    bool mergeState(rapidjson::Document& newState);
     rapidjson::Document& getDescriptionDOM() { return description_;}
     rapidjson::Document& getStateDOM() { return state_;}
     std::string getDescriptionString();

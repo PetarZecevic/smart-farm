@@ -29,10 +29,20 @@ class MQTT_Client
 public:
     using message_handler = FP<void, MQTT::MessageData&>;
     MQTT_Client(const IPInfo& info, std::string logFileName);
+    /**
+     * Set user and gateway id from ssdp response. 
+     * Set topics for communication with gateway.
+     */
     void setLog(std::string ssdpLog);
     bool connectToBroker(std::string brokerLocation, int port);
     bool subscribe();
+    /**
+     * Send device description to gateway log topic.
+     */
     bool sendInfo();
+    /**
+     * Send measured parameter values to gateway.
+     */
     void report(ReportFunction* repFunc);
     void waitFor(int milliseconds);
     bool isReportAllowed() {return reportAllowed_;};
