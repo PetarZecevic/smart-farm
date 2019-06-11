@@ -19,8 +19,11 @@ $(ODIR)/mqtt_client.o : mqtt_client.cpp
 # -Wl,-R/libpath eksplicitno naglasava odakle da potrazi biblioteke u runtime linkovanju.
 main: $(ODIR)/ssdp_client.o $(ODIR)/mqtt_client.o $(ODIR)/ipinfo.o main.cpp
 	$(CXX) $(CXXFLAGS) -I /usr/local/include -L $(LDIR) -g $^ -o $@ $(LIBS) -Wl,-R$(LDIR)
+
+bulb: $(ODIR)/ssdp_client.o $(ODIR)/mqtt_client.o $(ODIR)/ipinfo.o bulb.cpp
+	$(CXX) $(CXXFLAGS) -I /usr/local/include -L $(LDIR) -g $^ -o $@ $(LIBS) -lwiringPi -Wl,-R$(LDIR)
 	
 all: main
 
 clean:
-	rm -f main $(ODIR)/*.o
+	rm -f main bulb $(ODIR)/*.o

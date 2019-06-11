@@ -18,6 +18,12 @@ public:
     virtual bool operator()(rapidjson::Document& newState, rapidjson::Document& prevState) = 0;
 };
 
+class UpdateFunction
+{
+public:
+	virtual void operator()(rapidjson::Document& newState) = 0;	
+};
+
 class MQTT_Client
 {
 public:
