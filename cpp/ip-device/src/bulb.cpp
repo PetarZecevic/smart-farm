@@ -21,7 +21,14 @@ class BulbUpdate : public UpdateFunction
 public:
 	void operator()(rapidjson::Document& newState) override
 	{
-		return;
+		// Check LED1 state.
+		if(newState.HasMember("ContactService"))
+		{
+			if(strcmp((const char*)newState["ContactService"]["State"].GetString(), "T") == 0)
+				digitalWrite(LED1, HIGH);
+			else
+				digitalWrite(LED1, LOW);
+		}
 	}
 };
 
