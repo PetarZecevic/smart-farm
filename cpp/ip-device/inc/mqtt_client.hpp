@@ -44,12 +44,19 @@ public:
      * Send measured parameter values to gateway.
      */
     void report(ReportFunction* repFunc);
+    /**
+     * Set update function that will be called after
+     * gateway sends new state to device on /update topic.
+     * It is recommended to set this before report loop.
+     */
+    void setUpdateFunction(UpdateFunction* updateFunc) {updateFunction_ = updateFunc;}
     void waitFor(int milliseconds);
     bool isReportAllowed() {return reportAllowed_;};
     void recordLog(const std::string& logMessage);
     ~MQTT_Client();
 private:
     bool sendReport(rapidjson::Document& state);
+    // Callback methods for each of topic methods /get,/update,/log
     void logCallback(MQTT::MessageData& mdata);
     void getCallback(MQTT::MessageData& mdata);
     void updateCallback(MQTT::MessageData& mdata);
@@ -61,6 +68,7 @@ private:
     bool reportAllowed_;
     std::fstream logFile_;
     std::unordered_map<std::string, std::string> topics_;
+    UpdateFunction* updateFunction_;
 };
 
 #endif // MQTT_CLIENT_HPP

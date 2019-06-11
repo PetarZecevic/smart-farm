@@ -13,6 +13,7 @@ MQTT_Client::MQTT_Client(const IPInfo& info, std::string logFileName):
     gatewayid_(""),
     reportAllowed_(false)
 {
+    updateFunction_ = NULL;
     try
     {
         logFile_.open("log/" + logFileName, std::ios::openmode::_S_out);
@@ -163,7 +164,10 @@ void MQTT_Client::updateCallback(MQTT::MessageData& mdata)
         if(ipinfo_.mergeState(newState))
         {
             // Call update function callback.
-            ;
+            if(updateFunction_ != NULL)
+            {
+                updateFunction_->operator()(newState);
+            }
         }
         else
             // Failed to merge state.
