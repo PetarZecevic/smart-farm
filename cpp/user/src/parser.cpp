@@ -152,6 +152,7 @@ bool Parser::methodSet(std::list<std::string>& tokens, std::string& errorMessage
                             // Ranged based parameter.
                             else
                             {   
+                                tok.clear();
                                 split(values, '~', tok);
                                 int minimum = std::stoi(tok[0]);
                                 int maximum = std::stoi(tok[1]);
