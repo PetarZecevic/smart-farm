@@ -7,3 +7,5 @@ Prerequisities:
 	
 	Rapid JSON lib:
 		.h files moved to /usr/local/include/rapidjson directory
+
+Run program as root, because pwm functionality from wiringPi requires that.

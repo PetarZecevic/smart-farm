@@ -3,8 +3,8 @@
 #include "ssdp_client.hpp"
 #include "mqtt_client.hpp"
 
-const int LED1 = 0;
-const int LED2 = 1;
+const int LED1 = 17;
+const int LED2 = 18;
 
 class BulbReport : public ReportFunction
 {
@@ -19,6 +19,9 @@ public:
 class BulbUpdate : public UpdateFunction
 {
 public:
+	BulbUpdate(IPInfo& inf): 
+		info(inf)
+	{} 
 	void operator()(rapidjson::Document& newState) override
 	{
 		// Check LED1 state.
@@ -29,16 +32,43 @@ public:
 			else
 				digitalWrite(LED1, LOW);
 		}
+		else if(newState.HasMember("LightService"))
+		{
+			if(newState["LightService"].HasMember("DimLevel"))
+			{
+				if(!info.getStateDOM()["LightService"]["State"].IsString() &&
+					!info.getStateDOM()["ContactService"]["State"].IsString())
+				{
+					if(strcmp((const char*) info.getStateDOM()["LightService"]["State"].GetString(), "ON") == 0 && 
+				       strcmp((const char*) info.getStateDOM()["ContactService"]["State"].GetString(), "T") == 0)
+					{
+						int intensity = std::stoi(newState["LightService"]["DimLevel"].GetString());
+						// Convert 0-100 range to 0-1023.
+						// Library accepts 0-1023 range for intensity represented as pulse-width-modulation.
+						float tmp = (float)intensity * 10.23;
+						pwmWrite(LED2, (int)tmp);
+					}
+				}
+			}	
+			if(newState["LightService"].HasMember("State"))
+			{
+				if(strcmp(newState["LightService"]["State"].GetString(), "OFF") == 0)
+					pwmWrite(LED2, 0); // Turn of light.
+			}
+		}
 	}
+
+private:
+	IPInfo& info;
 };
 
 using namespace std;
 
 int main()
 {
-	wiringPiSetup();
-    pinMode(LED1, OUTPUT);
-	pinMode(LED2, OUTPUT);
+	wiringPiSetupGpio();
+    pinMode(LED1, OUTPUT); // Contact
+	pinMode(LED2, PWM_OUTPUT); // Light
 	
 	string jsonDoc("info1.json");
 	
@@ -70,7 +100,7 @@ int main()
 				cout << "Sent info" << endl;
 				mqtt_client.waitFor(500);
 				ReportFunction* myReport = new BulbReport();
-				UpdateFunction* myUpdate = new BulbUpdate();
+				UpdateFunction* myUpdate = new BulbUpdate(info);
 				if(mqtt_client.isReportAllowed())
 				{
 					mqtt_client.setUpdateFunction(myUpdate);
