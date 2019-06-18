@@ -16,3 +16,6 @@ cpp/user/src/main
 cpp/user/src/log/*
 cpp/user/src/.vscode/ipch
 cpp/user/inc/.vscode/ipch
+
+android/android-upnp-discovery-master
+android/android-upnp-discovery-master/*
