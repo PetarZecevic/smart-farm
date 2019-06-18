@@ -5,6 +5,8 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/prettywriter.h>
 
+using namespace std;
+
 const int LED1 = 17;
 const int LED2 = 18;
 
@@ -22,31 +24,42 @@ class BulbUpdate : public UpdateFunction
 {
 public:
 	void operator()(rapidjson::Document& state, rapidjson::Document& newState) override
-	{
-		rapidjson::StringBuffer s;
-		rapidjson::PrettyWriter<rapidjson::StringBuffer> w(s);
-
-		state.Accept(w);
-		std::cout << s.GetString() << std::endl;
-		
+	{	
 		// Check LED1 state.
+		static int contactState = -1; // Helper variable for reducing number of comparisons.
 		if(newState.HasMember("ContactService"))
 		{
 			if(strcmp((const char*)newState["ContactService"]["State"].GetString(), "T") == 0)
+			{
 				digitalWrite(LED1, HIGH);
+				contactState = 1;
+				// Set previously defined dim level for light.
+				if(state["LightService"]["State"].IsString() && state["LightService"]["DimLevel"].IsString())
+				{
+					if(strcmp(state["LightService"]["State"].GetString(), "ON") == 0)
+					{
+						int intensity = std::stoi(state["LightService"]["DimLevel"].GetString());
+						intensity *= 10;
+						pwmWrite(LED2, intensity);
+					}
+				}
+			}
 			else
+			{
+				// When there is no contact turn off light.
 				digitalWrite(LED1, LOW);
+				pwmWrite(LED2, 0);
+				contactState = 0;
+			}
 		}
 		if(newState.HasMember("LightService"))
 		{	
 			if(newState["LightService"].HasMember("DimLevel"))
 			{
-				std::cout << "Entered DimLevel check" << std::endl;
-				if(/*state["LightService"]["State"].IsString() &&*/
-				   state["ContactService"]["State"].IsString())
+				if(state["LightService"]["State"].IsString() && (contactState != -1))
 				{
-					if(/*(strcmp((const char*) state["LightService"]["State"].GetString(), "ON") == 0) &&*/ 
-				       (strcmp((const char*) state["ContactService"]["State"].GetString(), "T") == 0))
+					if((strcmp(state["LightService"]["State"].GetString(), "ON") == 0) && 
+				       (contactState == 1))
 					{
 						int intensity = std::stoi(newState["LightService"]["DimLevel"].GetString());
 						// Convert 0-100 range to 0-1023.
@@ -59,13 +72,23 @@ public:
 			if(newState["LightService"].HasMember("State"))
 			{
 				if(strcmp(newState["LightService"]["State"].GetString(), "OFF") == 0)
+				{
 					pwmWrite(LED2, 0); // Turn of light.
+				}
+				else if(strcmp(newState["LightService"]["State"].GetString(), "ON") == 0)
+				{
+					// Turn on light and set previously defined dim level.
+					if(state["LightService"]["DimLevel"].IsString() && (contactState == 1))
+					{
+						int intensity = std::stoi(state["LightService"]["DimLevel"].GetString());
+						intensity *= 10;
+						pwmWrite(LED2, intensity);
+					}
+				}
 			}
 		}
 	}
 };
-
-using namespace std;
 
 int main()
 {
