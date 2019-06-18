@@ -126,7 +126,7 @@ bool MQTT_Client::sendReport(rapidjson::Document& state)
 void MQTT_Client::logCallback(MQTT::MessageData& mdata)
 {
     MQTT::Message &message = mdata.message;
-    std::string response((char*)message.payload);
+    std::string response((const char*)message.payload, message.payloadlen);
     std::string logM("Response: ");
     logM += response;
     recordLog(logM);
@@ -151,14 +151,14 @@ void MQTT_Client::logCallback(MQTT::MessageData& mdata)
 void MQTT_Client::updateCallback(MQTT::MessageData& mdata)
 {
     MQTT::Message& message = mdata.message;
-    std::string update((char*)message.payload);
+    std::string update((const char*)message.payload, message.payloadlen);
     std::string logM("Parameters to update:\n");
     logM += update;
     recordLog(logM);
+    logM.clear();
 
-    std::string m((char*)mdata.message.payload);
     rapidjson::Document newState;
-    newState.Parse(m.c_str());
+    newState.Parse(update.c_str());
     if(!newState.HasParseError())
     {
         if(ipinfo_.mergeState(newState))
@@ -166,7 +166,7 @@ void MQTT_Client::updateCallback(MQTT::MessageData& mdata)
             // Call update function callback.
             if(updateFunction_ != NULL)
             {
-                updateFunction_->operator()(newState);
+                updateFunction_->operator()(ipinfo_.getStateDOM(), newState);
             }
         }
         else
@@ -178,7 +178,7 @@ void MQTT_Client::updateCallback(MQTT::MessageData& mdata)
 void MQTT_Client::getCallback(MQTT::MessageData& mdata)
 {
     MQTT::Message& message = mdata.message;
-    std::string request((char*)message.payload);
+    std::string request((const char*)message.payload, message.payloadlen);
     std::string logM("Parameters to return:\n");
     logM += request;
     recordLog(logM);

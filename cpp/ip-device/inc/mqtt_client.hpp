@@ -21,7 +21,7 @@ public:
 class UpdateFunction
 {
 public:
-	virtual void operator()(rapidjson::Document& newState) = 0;	
+	virtual void operator()(rapidjson::Document& state, rapidjson::Document& newState) = 0;	
 };
 
 class MQTT_Client

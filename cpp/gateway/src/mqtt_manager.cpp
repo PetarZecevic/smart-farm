@@ -82,7 +82,6 @@ void MQTT_Manager::mergeDeviceState(std::string id, const rapidjson::Document& s
         // Go through services.
         for (rapidjson::Value::ConstMemberIterator itr = state.MemberBegin(); itr != state.MemberEnd(); ++itr)
         {
-            //TODO: Add one more for loop to support services.
             if(device.state.HasMember(itr->name.GetString()))
             {
                 const rapidjson::Value& params = state[itr->name.GetString()];

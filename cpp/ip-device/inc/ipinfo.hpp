@@ -46,7 +46,7 @@ public:
      * Merge parameter values from @param newState with current state.
      * Method assumes that @param newState is correctly formed based on JSON state structure.
      */
-    bool mergeState(rapidjson::Document& newState);
+    bool mergeState(const rapidjson::Document& newState);
     rapidjson::Document& getDescriptionDOM() { return description_;}
     rapidjson::Document& getStateDOM() { return state_;}
     std::string getDescriptionString();

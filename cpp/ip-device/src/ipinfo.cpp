@@ -74,7 +74,7 @@ bool IPInfo::loadDescFromFile(const std::string filepath)
     return loadDescFromFile(filepath.c_str());
 }
 
-bool IPInfo::mergeState(rapidjson::Document& newState)
+bool IPInfo::mergeState(const rapidjson::Document& newState)
 {
     // Types of all possible values from JSON document.
     static std::string kTypeNames[] = { "Null", "False", "True", "Object", "Array", "String", "Number" };
@@ -82,11 +82,11 @@ bool IPInfo::mergeState(rapidjson::Document& newState)
     // Iterate through all services.
     for (rapidjson::Value::ConstMemberIterator itr = newState.MemberBegin(); itr != newState.MemberEnd(); ++itr)
     {
-        rapidjson::Value& params = newState[itr->name.GetString()];
+        const rapidjson::Value& params = newState[itr->name.GetString()];
         if(params.IsObject())
         {
             // Iterate through service parameters.
-            for(rapidjson::Value::MemberIterator pit = params.MemberBegin(); pit != params.MemberEnd(); pit++)
+            for(rapidjson::Value::ConstMemberIterator pit = params.MemberBegin(); pit != params.MemberEnd(); ++pit)
             {
                 rapidjson::Value& v = state_[itr->name.GetString()][pit->name.GetString()];
                 if(kTypeNames[pit->value.GetType()] == "String")

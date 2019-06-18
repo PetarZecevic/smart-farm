@@ -2,6 +2,8 @@
 #include <iostream>
 #include "ssdp_client.hpp"
 #include "mqtt_client.hpp"
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/prettywriter.h>
 
 const int LED1 = 17;
 const int LED2 = 18;
@@ -19,11 +21,14 @@ public:
 class BulbUpdate : public UpdateFunction
 {
 public:
-	BulbUpdate(IPInfo& inf): 
-		info(inf)
-	{} 
-	void operator()(rapidjson::Document& newState) override
+	void operator()(rapidjson::Document& state, rapidjson::Document& newState) override
 	{
+		rapidjson::StringBuffer s;
+		rapidjson::PrettyWriter<rapidjson::StringBuffer> w(s);
+
+		state.Accept(w);
+		std::cout << s.GetString() << std::endl;
+		
 		// Check LED1 state.
 		if(newState.HasMember("ContactService"))
 		{
@@ -32,21 +37,22 @@ public:
 			else
 				digitalWrite(LED1, LOW);
 		}
-		else if(newState.HasMember("LightService"))
-		{
+		if(newState.HasMember("LightService"))
+		{	
 			if(newState["LightService"].HasMember("DimLevel"))
 			{
-				if(!info.getStateDOM()["LightService"]["State"].IsString() &&
-					!info.getStateDOM()["ContactService"]["State"].IsString())
+				std::cout << "Entered DimLevel check" << std::endl;
+				if(/*state["LightService"]["State"].IsString() &&*/
+				   state["ContactService"]["State"].IsString())
 				{
-					if(strcmp((const char*) info.getStateDOM()["LightService"]["State"].GetString(), "ON") == 0 && 
-				       strcmp((const char*) info.getStateDOM()["ContactService"]["State"].GetString(), "T") == 0)
+					if(/*(strcmp((const char*) state["LightService"]["State"].GetString(), "ON") == 0) &&*/ 
+				       (strcmp((const char*) state["ContactService"]["State"].GetString(), "T") == 0))
 					{
 						int intensity = std::stoi(newState["LightService"]["DimLevel"].GetString());
 						// Convert 0-100 range to 0-1023.
 						// Library accepts 0-1023 range for intensity represented as pulse-width-modulation.
-						float tmp = (float)intensity * 10.23;
-						pwmWrite(LED2, (int)tmp);
+						intensity = intensity * 10;
+						pwmWrite(LED2, intensity);
 					}
 				}
 			}	
@@ -57,9 +63,6 @@ public:
 			}
 		}
 	}
-
-private:
-	IPInfo& info;
 };
 
 using namespace std;
@@ -69,7 +72,11 @@ int main()
 	wiringPiSetupGpio();
     pinMode(LED1, OUTPUT); // Contact
 	pinMode(LED2, PWM_OUTPUT); // Light
-	
+
+	// Reset LED's.
+	digitalWrite(LED1, LOW);
+	pwmWrite(LED2, 0);
+
 	string jsonDoc("info1.json");
 	
 	IPInfo info;
@@ -100,7 +107,7 @@ int main()
 				cout << "Sent info" << endl;
 				mqtt_client.waitFor(500);
 				ReportFunction* myReport = new BulbReport();
-				UpdateFunction* myUpdate = new BulbUpdate(info);
+				UpdateFunction* myUpdate = new BulbUpdate();
 				if(mqtt_client.isReportAllowed())
 				{
 					mqtt_client.setUpdateFunction(myUpdate);
