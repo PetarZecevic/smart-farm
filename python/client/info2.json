@@ -1,0 +1,12 @@
+{
+	"id" : "weather_sensor",
+	"group" : "sensors",
+	"TempService" :
+	{
+		"Temperature" : "-50~50|r"
+	},
+	"HumidityService" :
+	{
+		"Humidity" : "900~1100|r"
+	}
+}
