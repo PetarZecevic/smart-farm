@@ -42,8 +42,7 @@ class SSDP_Protocol():
         try:
             data, addr = self.protocol_socket.recvfrom(
                 SSDP_Protocol.SSDP_MSG_MAX_SIZE)
-            print(addr)
-            header = data.splitlines()
+            header = data.decode('utf-8').splitlines()
             if header[0] == 'HTTP/1.1 200 OK':
                 for line in header[1:]:
                     param_name = line.split(':', maxsplit=1)[0]
