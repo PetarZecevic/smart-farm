@@ -9,92 +9,92 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketAddress;
-import java.net.UnknownHostException;
-import java.util.HashSet;
+import java.util.HashMap;
 
 /**
  * @author Bernd Verst(@berndverst)
  */
-public class UPnPDiscovery extends AsyncTask
-{
-    private HashSet<String> addresses = new HashSet<>();
-    private Context ctx = null;
+public class UPnPDiscovery extends AsyncTask<Context, Void, String[]> {
 
-    public UPnPDiscovery(Context context) {
-        ctx = context;
+    private final String SSDP_ADDR = "239.255.255.250";
+    private final int SSDP_PORT = 1900;
+    private final int CONNECTION_TIMEOUT_MS = 2000;
+    private final int RESPONSE_LENGTH = 512;
+    private final String QUERY = "M-SEARCH * HTTP/1.1\r\n" +
+            "HOST: 239.255.255.250:1900\r\n" +
+            "MAN: \"ssdp:discover\"\r\n" +
+            "MX: 2\r\n" +
+            "ST: IOTGATEWAY\r\n" +
+            "\r\n";
+    private UPnPListener mListener = null;
+
+    public UPnPDiscovery(UPnPListener uPnPListener) {
+        mListener = uPnPListener;
     }
 
-
+    /* Send SSDP Request and wait for the first gateway response.*/
     @Override
-    protected Object doInBackground(Object[] params) {
-
-        WifiManager wifi = (WifiManager)ctx.getApplicationContext().getSystemService( Context.WIFI_SERVICE );
-
-        if(wifi != null) {
-
+    protected String[] doInBackground(Context... contexts) {
+        String[] response = null;
+        WifiManager wifi = (WifiManager) contexts[0].getApplicationContext()
+                .getSystemService(Context.WIFI_SERVICE);
+        if (wifi != null) {
             WifiManager.MulticastLock lock = wifi.createMulticastLock("The Lock");
-            if(!lock.isHeld())
+            if (!lock.isHeld())
                 lock.acquire();
-
             DatagramSocket socket = null;
-
             try {
-
-                InetAddress group = InetAddress.getByName("239.255.255.250");
-                int port = 1900;
-                String query =
-                        "M-SEARCH * HTTP/1.1\r\n" +
-                                "HOST: 239.255.255.250:1900\r\n"+
-                                "MAN: \"ssdp:discover\"\r\n"+
-                                "MX: 2\r\n"+
-                                "ST: IOTGATEWAY\r\n"+  // Use for Sonos
-                                //"ST: ssdp:all\r\n"+  // Use this for all UPnP Devices
-                                "\r\n";
-
-                socket = new DatagramSocket(port);
+                InetAddress group = InetAddress.getByName(SSDP_ADDR);
+                socket = new DatagramSocket(SSDP_PORT);
                 socket.setReuseAddress(true);
                 socket.setBroadcast(true);
-                DatagramPacket dgram = new DatagramPacket(query.getBytes(), query.length(),
-                        group, port);
-                socket.send(dgram);
-                socket.setSoTimeout(2000);
-                long time = System.currentTimeMillis();
-                long curTime = System.currentTimeMillis();
+                DatagramPacket datagramRequest = new DatagramPacket(QUERY.getBytes(), QUERY.length(),
+                        group, SSDP_PORT);
+                socket.send(datagramRequest);
+                socket.setSoTimeout(CONNECTION_TIMEOUT_MS);
 
-                // Let's consider all the responses we can get in 1 second
-                while (curTime - time < 1000) {
-                    DatagramPacket p = new DatagramPacket(new byte[12], 12);
-                    socket.receive(p);
-
-                    String s = new String(p.getData(), 0, p.getLength());
-                    Log.d("UPNP", s);
-                    addresses.add(p.getAddress().getHostAddress());
-                    curTime = System.currentTimeMillis();
-                }
-
-            } catch (UnknownHostException e) {
-                e.printStackTrace();
+                DatagramPacket datagramResponse = new DatagramPacket(new byte[RESPONSE_LENGTH],
+                        RESPONSE_LENGTH);
+                socket.receive(datagramResponse);
+                String data = new String(datagramResponse.getData(), 0,
+                        datagramResponse.getLength());
+                response = data.split("\r\n");
             } catch (IOException e) {
                 e.printStackTrace();
+            } finally {
+                if (socket != null)
+                    socket.close();
             }
-            finally {
-                socket.close();
-            }
-            if(lock.isHeld())
+            if (lock.isHeld())
                 lock.release();
         }
-        return null;
+        return response;
     }
 
-    public static String[] discoverDevices(Context ctx) {
-        UPnPDiscovery discover = new UPnPDiscovery(ctx);
-        discover.execute();
-        try {
-            Thread.sleep(3000);
-            return discover.addresses.toArray(new String[discover.addresses.size()]);
-        } catch (InterruptedException e) {
-            return null;
+    @Override
+    protected void onPostExecute(String[] responseLines) {
+        if (mListener != null) {
+            HashMap<String, String> params = new HashMap<>();
+            if (responseLines != null) {
+                params.put("STATUS", responseLines[0]);
+                for (int index = 1; index < responseLines.length; index++) {
+                    if (!responseLines[index].isEmpty()) {
+                        String key = null;
+                        String value = null;
+                        try {
+                            key = responseLines[index].split(":", 2)[0];
+                            value = responseLines[index].split(":", 2)[1];
+                        } catch (IndexOutOfBoundsException e) {
+                            e.printStackTrace();
+                        } finally {
+                            if (key != null && value != null) {
+                                params.put(key, value);
+                            }
+                        }
+                    }
+                }
+            }
+            mListener.handleResponse(params);
         }
     }
 }

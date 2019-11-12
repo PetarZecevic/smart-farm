@@ -1,12 +1,11 @@
 package com.iotsystem.iotclient;
 
-import android.content.Context;
-import android.net.wifi.WifiManager;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.text.format.Formatter;
+import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.TextView;
+
+import java.util.HashMap;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -22,15 +21,16 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.search_button).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                StringBuilder builder = new StringBuilder();
-                String[] addr = UPnPDiscovery.discoverDevices(getApplicationContext());
-                if(addr != null && addr.length > 0){
-                    for(String s : addr){
-                        builder.append(s);
-                        builder.append('\n');
+                new UPnPDiscovery(new UPnPListener() {
+                    @Override
+                    public void handleResponse(HashMap<String, String> responseParams) {
+                        if(responseParams.containsKey("LOCATION")){
+                            mAddressText.setText(responseParams.get("LOCATION"));
+                        } else {
+                            mAddressText.setText("NOT FOUND");
+                        }
                     }
-                }
-                mAddressText.setText(builder.toString());
+                }).execute(getApplicationContext());
             }
         });
     }
