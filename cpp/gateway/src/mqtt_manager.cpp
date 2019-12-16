@@ -5,15 +5,14 @@
 #include <sstream>
 #include <ctime>
 
-// Manager.
 MQTT_Manager::MQTT_Manager(std::string userId, std::string gatewayId, std::string brokerAddress):
     user_id_(userId),
     gateway_id_(gatewayId),
     broker_addr_(brokerAddress),
-    mqtt_client_(broker_addr_, gateway_id_),
-    cb_(mqtt_client_, *this)
+    mqtt_client_(broker_addr_, gateway_id_)
 {
-    mqtt_client_.set_callback(cb_);
+    mqtt_client_.set_callback(*this);
+    managerLog_ = user_id_ + "/gateway/" + gateway_id_ + "/log";
     try{
         logFile_.open("log/mqtt-log.txt", std::ios::openmode::_S_out);
     }catch(std::exception& e){
@@ -117,7 +116,7 @@ void MQTT_Manager::mergeDeviceState(std::string id, const rapidjson::Document& s
     }
 }
 
-std::string MQTT_Manager::getAllInfo()
+std::string MQTT_Manager::getAllDevicesInfo()
 {
     std::string info = "";
     info += "{"; // begin object.
@@ -141,7 +140,7 @@ std::string MQTT_Manager::getAllInfo()
     return info;
 }
 
-std::string MQTT_Manager::getAllState()
+std::string MQTT_Manager::getAllDevicesState()
 {
     std::string state = "";
     state += "{"; // begin object.
@@ -166,7 +165,7 @@ std::string MQTT_Manager::getAllState()
 }
 
 
-std::string MQTT_Manager::getOneInfo(std::string id)
+std::string MQTT_Manager::getDeviceInfo(std::string id)
 {
     std::string info = "";
     info += "{"; // begin object.
@@ -187,7 +186,7 @@ std::string MQTT_Manager::getOneInfo(std::string id)
     return info;
 }
 
-std::string MQTT_Manager::getOneState(std::string id)
+std::string MQTT_Manager::getDeviceState(std::string id)
 {
     std::string state = "";
     state += "{"; // begin object.
@@ -229,30 +228,29 @@ MQTT_Manager::~MQTT_Manager()
     }
 }
 
-// Callback.
-// Re-connection failure
-void MQTT_Manager::callback::on_failure(const mqtt::token& tok){
+
+void MQTT_Manager::on_failure(const mqtt::token& tok){
     std::string logM = "Connection attempt failed";
-    manager_.recordLog(logM);
+    recordLog(logM);
 }
 
-void MQTT_Manager::callback::connected(const std::string& cause){
+void MQTT_Manager::connected(const std::string& cause){
 	std::string logM = "Connection success";
-    manager_.recordLog(logM);
+    recordLog(logM);
 }
 
-void MQTT_Manager::callback::connection_lost(const std::string& cause) 
+void MQTT_Manager::connection_lost(const std::string& cause) 
 {
     std::string logM1 = "Connection lost";
-    manager_.recordLog(logM1);
+    recordLog(logM1);
     if (!cause.empty())
     {
         std::string logM2 = "cause: " + cause;
-        manager_.recordLog(logM2); 
+        recordLog(logM2); 
     }
 }
 
-void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
+void MQTT_Manager::message_arrived(mqtt::const_message_ptr msg)
 {
     std::string topic = msg->get_topic();
     std::string content = msg->to_string();
@@ -265,19 +263,19 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
         {
             std::string deviceId = deviceInfo["id"].GetString();
             std::string deviceGroup = deviceInfo["group"].GetString();
-            std::string iplog = manager_.getUserId() + "/" + deviceGroup + "/" + deviceId + "/log";
-            std::string ipreport = manager_.getUserId() + "/" + deviceGroup + "/" + deviceId + "/report";
+            std::string iplog = getUserId() + "/" + deviceGroup + "/" + deviceId + "/log";
+            std::string ipreport = getUserId() + "/" + deviceGroup + "/" + deviceId + "/report";
             try
             {
-                cli_.subscribe(ipreport, 1);
+                mqtt_client_.subscribe(ipreport, 1);
                 mqtt::message_ptr pubm = mqtt::make_message(iplog, "OK");
                 pubm->set_qos(1);
-                cli_.publish(pubm);
+                mqtt_client_.publish(pubm);
             }
             catch(mqtt::exception& exc)
             {
                 std::string excp = exc.what();
-                manager_.recordLog(excp);
+                recordLog(excp);
                 return;
             }
             
@@ -288,15 +286,15 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
             {
                 // Successfully configured state from description.
                 // Register device into internal database.
-                manager_.registerDevice(deviceId, deviceInfo, state);
+                registerDevice(deviceId, deviceInfo, state);
                 logM += "Device " + deviceId + " connected."; 
-                manager_.recordLog(logM);
+                recordLog(logM);
             }
             else
             {
                 // Error in description.
                 logM += "Device " + deviceId + " state configuring failed.";
-                manager_.recordLog(logM);
+                recordLog(logM);
             }
         }
     }
@@ -314,10 +312,10 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
             if(content == "OFFLINE")
             {
                 // Device disconnected, delete it from devices list.
-                manager_.unregisterDevice(deviceId);
+                unregisterDevice(deviceId);
                 std::string logM("");
                 logM += "Device " + deviceId + " disconnected."; 
-                manager_.recordLog(logM);
+                recordLog(logM);
             }
             else
             {
@@ -326,7 +324,7 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
                 state.Parse(content.c_str());
                 if(!state.HasParseError())
                 {
-                    manager_.mergeDeviceState(deviceId, state);
+                    mergeDeviceState(deviceId, state);
                 }
             }
         }
@@ -335,7 +333,7 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
             std::string logM("");
             logM += "Command from user:\n";
             logM += content;
-            manager_.recordLog(logM);
+            recordLog(logM);
             // Parse user command.
             rapidjson::Document command;
             command.Parse(content.c_str());
@@ -350,17 +348,17 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
                 {
                     topic += "/response/info"; 
                     if(device == "*")
-                        message = manager_.getAllInfo();
+                        message = getAllDevicesInfo();
                     else
-                        message = manager_.getOneInfo(device);
+                        message = getDeviceInfo(device);
                 }
                 else if(json == "state")
                 {
                     topic += "/response/state";
                     if(device == "*")
-                        message = manager_.getAllState();
+                        message = getAllDevicesState();
                     else
-                        message = manager_.getOneState(device);
+                        message = getDeviceState(device);
                 }
 
                 if(!message.empty())
@@ -369,12 +367,12 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
                     {
                         mqtt::message_ptr pubm = mqtt::make_message(topic, message.c_str());
                         pubm->set_qos(1);
-                        cli_.publish(pubm);
+                        mqtt_client_.publish(pubm);
                     }
                     catch(const mqtt::exception& e)
                     {
                         std::string excp = e.what();
-                        manager_.recordLog(excp);
+                        recordLog(excp);
                     }
                 }
             }
@@ -395,36 +393,36 @@ void MQTT_Manager::callback::message_arrived(mqtt::const_message_ptr msg)
                 writer.EndObject();
 
                 // Send command to device.
-                std::string deviceTopic = manager_.getUserId() + "/" + 
+                std::string deviceTopic = getUserId() + "/" + 
                                           command["group"].GetString() + "/" +
                                           command["device"].GetString() + "/update"; 
                 try
                 {
                     mqtt::message_ptr pubm = mqtt::make_message(deviceTopic, s.GetString());
                     pubm->set_qos(1);
-                    cli_.publish(pubm);
+                    mqtt_client_.publish(pubm);
                 }
                 catch(const mqtt::exception& e)
                 {
                     std::string excp = e.what();
-                    manager_.recordLog(excp);
+                    recordLog(excp);
                 }
 
                 rapidjson::Document state;
                 state.Parse(s.GetString());
-                manager_.mergeDeviceState(command["device"].GetString(), state);   
+                mergeDeviceState(command["device"].GetString(), state);   
             }
         }
         else
         {
             // error - bad topic.
             std::string excp = "Error in topic";
-            manager_.recordLog(excp);
+            recordLog(excp);
         }
     }
 }
 
-void MQTT_Manager::callback::split(const std::string& s, char delimiter, std::vector<std::string>& tokens)
+void MQTT_Manager::split(const std::string& s, char delimiter, std::vector<std::string>& tokens)
 {
     std::string token;
     std::istringstream tokenStream(s);
