@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <vector>
 #include <fstream>
+#include <functional>
+#include <memory>
 #include <mqtt/async_client.h>
 #include "device.hpp"
 
@@ -21,10 +23,13 @@ class MQTT_Manager : public virtual mqtt::callback,
     std::string broker_addr_;
     /* Library MQTT client used to handle communication with MQTT server */
     mqtt::async_client mqtt_client_;
-    /* Manager topic for device logging */
-    std::string managerLog_;
     /* Table that represents IOT devices connected to the gateway */
     std::unordered_map<std::string, Device> devices_;
+    class ITopicHandler; // Forward declaration of the interface.
+    /* Table that maps gateway topics to handler called when message arrives at the specific topic */
+    std::unordered_map<std::string, std::unique_ptr<ITopicHandler>> topic_handlers_;
+    /* String prefix for gateway topics used by the other devices to communicate with the gateway */
+    std::string manager_topic_prefix_;
     /* File used to write log informations */
     std::fstream logFile_;
 
@@ -123,6 +128,7 @@ public:
      */
     std::string getDeviceState(std::string id);
     
+    friend void ITopicHandler
     /**
      * @brief Destroy the mqtt manager object
      */
@@ -137,7 +143,6 @@ private:
      */
     void on_failure(const mqtt::token& tok) override;
     
-
     /**
      * @brief Action success
      * 
@@ -166,6 +171,18 @@ private:
      */
     void message_arrived(mqtt::const_message_ptr msg) override;
 
+
+    /**
+     * 
+     * Wrap around the default subscribe function of the mqtt client which will 
+     * allow us to set the specific handler for the topic, that manager subscribes to.
+     * 
+     * @param topic subsription topic 
+     * @param QoS quality of service, number between 0-2
+     * @param handlerPtr pointer to handler which will activated when message arrives on the topic
+     */
+    void subsrcibeWithHandler(std::string topic, int QoS, std::unique_ptr<ITopicHandler>& handlerPtr);
+
     /**
      * @brief Split string {s} by {delimiter} and store result in {tokens}.
      * 
@@ -186,6 +203,52 @@ private:
      */
     void recordLog(const std::string& logMessage);
 
+    /**
+     * @brief Used to handle message received on specific topic.
+     */
+    class ITopicHandler
+    {
+    public:
+        virtual void handle(std::string message) = 0;
+    };
+
+    /**
+     * @brief Used to handle registration of the new device to gateway devices table.
+     * 
+     */
+    class DeviceRegisterHandler : public ITopicHandler
+    {
+    public:
+        void handle(std::string message) override;
+    };
+
+    /**
+     * @brief Used to handle commands sent by gateway user.
+     * 
+     */
+    class CommandHandler : public ITopicHandler
+    {
+    public:
+        void handle(std::string message) override;
+    }
+
+    /**
+     * @brief Used to handle reports coming from registered devices.
+     * 
+     */
+    class DeviceReportHandler : public ITopicHandler
+    {
+        /* Unique identification of the device used for the operations on the gateway device table. */
+        std::string device_id_;
+    public:
+        /**
+         * @brief Construct a new Device Report Handler object for device with given id.
+         * 
+         * @param deviceId device unique identification
+         */
+        DeviceReportHandler(std::string deviceId);
+        void handle(std::string message) override;
+    }
 };
 
 #endif // MQTT_MANAGER_HPP

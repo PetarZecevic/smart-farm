@@ -12,7 +12,7 @@ MQTT_Manager::MQTT_Manager(std::string userId, std::string gatewayId, std::strin
     mqtt_client_(broker_addr_, gateway_id_)
 {
     mqtt_client_.set_callback(*this);
-    managerLog_ = user_id_ + "/gateway/" + gateway_id_ + "/log";
+    manager_topic_prefix_ = user_id_ + "/gateway/" + gateway_id_;
     try{
         logFile_.open("log/mqtt-log.txt", std::ios::openmode::_S_out);
     }catch(std::exception& e){
@@ -41,10 +41,11 @@ bool MQTT_Manager::start()
     {
         try
         {
-            std::string logTopic = user_id_ + "/gateway/" + gateway_id_ + "/log";
-            std::string commandTopic = user_id_ + "/gateway/" + gateway_id_ + "/command";
-            mqtt_client_.subscribe(logTopic, 2);
-            mqtt_client_.subscribe(commandTopic, 1);
+            // TODO: Add factory pattern for handlers and pass it to the function.
+            std::unique_ptr<ITopicHandler> devRegHandler(new DeviceRegisterHandler);
+            subscribeWithHandler(managerTopicPrefix_ + "/log", 2, devRegHandler);
+            std::unique_ptr<ITopicHandler> commandHandler(new CommandHandler); 
+            subscribeWithHandler(managerTopicPrefix_ + "/command", 1, commandHandler); 
         }
         catch(const mqtt::exception& exc)
         {
@@ -70,6 +71,7 @@ void MQTT_Manager::unregisterDevice(std::string id)
     devices_.erase(id);
 }
 
+// TODO: Move this function as the part of the Device class.
 void MQTT_Manager::mergeDeviceState(std::string id, const rapidjson::Document& state)
 {
     static std::string kTypeNames[] = { "Null", "False", "True", "Object", "Array", "String", "Number" };
@@ -79,7 +81,9 @@ void MQTT_Manager::mergeDeviceState(std::string id, const rapidjson::Document& s
         Device& device = devices_.at(id);
         rapidjson::Document::AllocatorType& allocator = device.state.GetAllocator();
         // Go through services.
-        for (rapidjson::Value::ConstMemberIterator itr = state.MemberBegin(); itr != state.MemberEnd(); ++itr)
+        for (rapidjson::Value::ConstMemberIterator itr = state.MemberBegin(); 
+            itr != state.MemberEnd(); 
+            ++itr)
         {
             if(device.state.HasMember(itr->name.GetString()))
             {
@@ -87,7 +91,9 @@ void MQTT_Manager::mergeDeviceState(std::string id, const rapidjson::Document& s
                 if(params.IsObject())
                 {
                     // Go through params for each service.
-                    for(rapidjson::Value::ConstMemberIterator pit = params.MemberBegin(); pit != params.MemberEnd(); ++pit)
+                    for(rapidjson::Value::ConstMemberIterator pit = params.MemberBegin(); 
+                        pit != params.MemberEnd(); 
+                        ++pit)
                     {
                         // Update params values.
                         rapidjson::Value& v = device.state[itr->name.GetString()][pit->name.GetString()];
@@ -207,6 +213,12 @@ std::string MQTT_Manager::getDeviceState(std::string id)
     return state;
 }
 
+void MQTT_Manager::subsrcibeWithHandler(std::string topic, int QoS, std::unique_ptr<ITopicHandler>& handlerPtr)
+{
+    mqtt_client_.subscribe(topic, QoS);
+    topic_handlers_.insert(std::make_pair(topic, std::move(handlerPtr));
+}
+
 void MQTT_Manager::recordLog(const std::string& logMessage)
 {
     if(logFile_.is_open())
@@ -226,6 +238,9 @@ MQTT_Manager::~MQTT_Manager()
         recordLog(bye); 
         logFile_.close();
     }
+
+    // Release each registered handler.
+
 }
 
 
@@ -253,171 +268,173 @@ void MQTT_Manager::connection_lost(const std::string& cause)
 void MQTT_Manager::message_arrived(mqtt::const_message_ptr msg)
 {
     std::string topic = msg->get_topic();
-    std::string content = msg->to_string();
+    std::string message = msg->to_string();
 
-    if(topic == managerLog_)
+    auto handler = topic_handlers_.find(topic);
+    if(handler != topic_handlers_.end())
     {
-        rapidjson::Document deviceInfo;
-        deviceInfo.Parse(content.c_str());
-        if(!deviceInfo.HasParseError())
-        {
-            std::string deviceId = deviceInfo["id"].GetString();
-            std::string deviceGroup = deviceInfo["group"].GetString();
-            std::string iplog = getUserId() + "/" + deviceGroup + "/" + deviceId + "/log";
-            std::string ipreport = getUserId() + "/" + deviceGroup + "/" + deviceId + "/report";
-            try
-            {
-                mqtt_client_.subscribe(ipreport, 1);
-                mqtt::message_ptr pubm = mqtt::make_message(iplog, "OK");
-                pubm->set_qos(1);
-                mqtt_client_.publish(pubm);
-            }
-            catch(mqtt::exception& exc)
-            {
-                std::string excp = exc.what();
-                recordLog(excp);
-                return;
-            }
-            
-            // TODO: Move conversion from description to state in static method of class Device.
-            rapidjson::Document state;
-            std::string logM("");
-            if(Device::setStateFromDescription(state, deviceInfo))
-            {
-                // Successfully configured state from description.
-                // Register device into internal database.
-                registerDevice(deviceId, deviceInfo, state);
-                logM += "Device " + deviceId + " connected."; 
-                recordLog(logM);
-            }
-            else
-            {
-                // Error in description.
-                logM += "Device " + deviceId + " state configuring failed.";
-                recordLog(logM);
-            }
-        }
+        handler->handle(message);
     }
     else
+    {  
+        std::string excp = "Handler for the topic not found";
+        recordLog(excp);
+    }
+}
+
+
+// Handlers
+void DeviceRegisterHandler::handle(std::string message)
+{
+    rapidjson::Document deviceInfo;
+    deviceInfo.Parse(content.c_str());
+    if(!deviceInfo.HasParseError())
     {
-        // Parse topic to find out method and device's id.
-        std::vector<std::string> tokens;
-        split(topic, '/', tokens);
-        size_t lastToken = tokens.size()-1;
-        std::string method = tokens[lastToken];
-        
-        if(method == "report")
+        std::string deviceId = deviceInfo["id"].GetString();
+        std::string deviceGroup = deviceInfo["group"].GetString();
+        std::string iplog = getUserId() + "/" + deviceGroup + "/" + deviceId + "/log";
+        std::string ipreport = getUserId() + "/" + deviceGroup + "/" + deviceId + "/report";
+        try
         {
-            std::string deviceId = tokens[lastToken-1];
-            if(content == "OFFLINE")
-            {
-                // Device disconnected, delete it from devices list.
-                unregisterDevice(deviceId);
-                std::string logM("");
-                logM += "Device " + deviceId + " disconnected."; 
-                recordLog(logM);
-            }
-            else
-            {
-                // Merge change in parameters.
-                rapidjson::Document state;
-                state.Parse(content.c_str());
-                if(!state.HasParseError())
-                {
-                    mergeDeviceState(deviceId, state);
-                }
-            }
+            std::unique_ptr<ITopicHandler> devReportHandlerPtr(new DeviceReportHandler(deviceId))
+            subscribeWithHandler(ipreport, 1, devReportHandlerPtr);
+            mqtt::message_ptr pubm = mqtt::make_message(iplog, "OK");
+            pubm->set_qos(1);
+            mqtt_client_.publish(pubm);
         }
-        else if(method == "command")
+        catch(mqtt::exception& exc)
         {
-            std::string logM("");
-            logM += "Command from user:\n";
-            logM += content;
+            std::string excp = exc.what();
+            recordLog(excp);
+            return;
+        }
+
+        rapidjson::Document state;
+        std::string logM("");
+        if(Device::setStateFromDescription(state, deviceInfo))
+        {
+            // Successfully configured state from description.
+            // Register device into internal database.
+            registerDevice(deviceId, deviceInfo, state);
+            logM += "Device " + deviceId + " connected."; 
             recordLog(logM);
-            // Parse user command.
-            rapidjson::Document command;
-            command.Parse(content.c_str());
-            std::string type = command["command_type"].GetString();
-
-            if(type == "GET")
-            {
-                std::string json = command["json"].GetString();
-                std::string device = command["device"].GetString();
-                std::string message = "";
-                if(json == "info")
-                {
-                    topic += "/response/info"; 
-                    if(device == "*")
-                        message = getAllDevicesInfo();
-                    else
-                        message = getDeviceInfo(device);
-                }
-                else if(json == "state")
-                {
-                    topic += "/response/state";
-                    if(device == "*")
-                        message = getAllDevicesState();
-                    else
-                        message = getDeviceState(device);
-                }
-
-                if(!message.empty())
-                {
-                    try
-                    {
-                        mqtt::message_ptr pubm = mqtt::make_message(topic, message.c_str());
-                        pubm->set_qos(1);
-                        mqtt_client_.publish(pubm);
-                    }
-                    catch(const mqtt::exception& e)
-                    {
-                        std::string excp = e.what();
-                        recordLog(excp);
-                    }
-                }
-            }
-            else if(type == "SET")
-            {
-                
-                // Change state of one of the devices.
-                rapidjson::StringBuffer s;
-                rapidjson::Writer<rapidjson::StringBuffer> writer(s);
-                
-                // TODO: Extract service from command also.
-                writer.StartObject();
-                writer.Key(command["service"].GetString());
-                writer.StartObject();
-                writer.Key(command["parameter"].GetString());
-                writer.String(command["value"].GetString());
-                writer.EndObject();
-                writer.EndObject();
-
-                // Send command to device.
-                std::string deviceTopic = getUserId() + "/" + 
-                                          command["group"].GetString() + "/" +
-                                          command["device"].GetString() + "/update"; 
-                try
-                {
-                    mqtt::message_ptr pubm = mqtt::make_message(deviceTopic, s.GetString());
-                    pubm->set_qos(1);
-                    mqtt_client_.publish(pubm);
-                }
-                catch(const mqtt::exception& e)
-                {
-                    std::string excp = e.what();
-                    recordLog(excp);
-                }
-
-                rapidjson::Document state;
-                state.Parse(s.GetString());
-                mergeDeviceState(command["device"].GetString(), state);   
-            }
         }
         else
         {
-            // error - bad topic.
-            std::string excp = "Error in topic";
+            // Error in description.
+            logM += "Device " + deviceId + " state configuring failed.";
+            recordLog(logM);
+        }
+    }
+}
+
+void CommandHandler::handle(std::string message)
+{
+    std::string logM("");
+    logM += "Command from user:\n";
+    logM += message;
+    recordLog(logM);
+    // Parse user command.
+    rapidjson::Document command;
+    command.Parse(message.c_str());
+    std::string type = command["command_type"].GetString();
+
+    if(type == "GET")
+    {
+        std::string json = command["json"].GetString();
+        std::string device = command["device"].GetString();
+        std::string response = "";
+        if(json == "info")
+        {
+            topic += "/response/info"; 
+            if(device == "*")
+                response = getAllDevicesInfo();
+            else
+                response = getDeviceInfo(device);
+        }
+        else if(json == "state")
+        {
+            topic += "/response/state";
+            if(device == "*")
+                response = getAllDevicesState();
+            else
+                response = getDeviceState(device);
+        }
+
+        if(!message.empty())
+        {
+            try
+            {
+                mqtt::message_ptr pubm = mqtt::make_message(topic, response.c_str());
+                pubm->set_qos(1);
+                mqtt_client_.publish(pubm);
+            }
+            catch(const mqtt::exception& e)
+            {
+                std::string excp = e.what();
+                recordLog(excp);
+            }
+        }
+    }
+    else if(type == "SET")
+    {
+        
+        // Change state of one of the devices.
+        rapidjson::StringBuffer s;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(s);
+        
+        writer.StartObject();
+        writer.Key(command["service"].GetString());
+        writer.StartObject();
+        writer.Key(command["parameter"].GetString());
+        writer.String(command["value"].GetString());
+        writer.EndObject();
+        writer.EndObject();
+
+        // Send command to the device.
+        std::string deviceTopic = getUserId() + "/" + 
+                                    command["group"].GetString() + "/" +
+                                    command["device"].GetString() + "/update"; 
+        try
+        {
+            mqtt::message_ptr pubm = mqtt::make_message(deviceTopic, s.GetString());
+            pubm->set_qos(1);
+            mqtt_client_.publish(pubm);
+        }
+        catch(const mqtt::exception& e)
+        {
+            std::string excp = e.what();
             recordLog(excp);
+        }
+
+        rapidjson::Document state;
+        state.Parse(s.GetString());
+        mergeDeviceState(command["device"].GetString(), state);   
+    }
+}
+
+DeviceReportHandler::DeviceReportHandler(std::string deviceId) :
+    device_id_(deviceId)
+{}
+
+void DeviceReportHandler::handle(std::string message)
+{
+    if(message == "OFFLINE")
+    {
+        // Device disconnected, delete it from the devices table.
+        unregisterDevice(device_id_);
+        std::string logM("");
+        logM += "Device " + device_id_ + " disconnected."; 
+        recordLog(logM);
+    }
+    else
+    {
+        // Merge change in the parameters.
+        rapidjson::Document state;
+        state.Parse(message.c_str());
+        if(!state.HasParseError())
+        {
+            mergeDeviceState(device_id_, state);
         }
     }
 }

@@ -51,7 +51,15 @@
 			"utility": "cpp",
 			"cstdarg": "cpp",
 			"future": "cpp",
-			"cinttypes": "cpp"
+			"cinttypes": "cpp",
+			"string": "cpp",
+			"cmath": "cpp",
+			"cstddef": "cpp",
+			"algorithm": "cpp",
+			"iterator": "cpp",
+			"memory_resource": "cpp",
+			"optional": "cpp",
+			"string_view": "cpp"
 		}
 	}
 }
